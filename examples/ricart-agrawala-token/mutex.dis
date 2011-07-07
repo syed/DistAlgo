@@ -1,0 +1,47 @@
+
+class P(DistProcess):
+      def setup(peers, token):
+            ps = peers
+            requested = dict((p, 0) for p in ps)
+            granted = dict((p, 0) for p in ps)
+            token_held = token
+            in_cs = False
+
+      def cs():
+          --start
+          if (not token_held):
+              incr_logical_clock()
+              send(Request(), ps)
+          --await
+          await(token_held)
+
+           # IN CS!
+          in_cs = True
+#          output("In CS!")
+          work()
+          --release
+#          output("Releasing CS!")
+          in_cs = False
+          release()
+
+      def release():
+           if in_cs or not token_held: return
+           for p in ps:
+                 if (requested[p] > granted[p]):
+                       token_held = False
+                       send(Token(granted), p)
+                       break
+
+      def main():
+            while True:
+                  cs()
+                  work()
+
+      def OnToken(g):
+           granted = g
+           granted[self] = logical_clock()
+           token_held = True
+
+      def OnRequest():
+           requested[_source] = max(requested[_source], _timestamp)
+           release()

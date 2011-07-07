@@ -1,0 +1,64 @@
+from random import randint
+
+class Proposer(DistProcess):
+    def setup(nodes, increment):
+        ballot = self           # Our starting ballot number
+        value = self
+        increment = increment   # Increment to ensure unique ballot number
+        nodes = nodes           # Set of all acceptors
+
+    def main():
+      retry = 0  
+      while True:
+          --transact_start
+          retry += 1
+          send(Prepare(ballot, value), nodes)
+
+          await((len(received(Agree(ballot, src))) + len(received(Deny(ballot, src)))
+                 == len(nodes)), TIMEOUT)
+
+          # Only commit when we receive Agree from all acceptor nodes,
+          # otherwise abort:
+          if (len(received(Agree(ballot, src))) == len(nodes)):
+              send(Commit(ballot), nodes)
+              output("Committed ballot %d on %dth attempt"%(ballot, retry))
+              retry = 0
+              ballot += increment
+              break
+          else:
+              send(Abort(ballot), nodes)
+              retry += 1
+          --transact_end
+
+
+class Acceptor(DistProcess):
+    def setup(rate):
+        failure_rate = rate
+        staging = {}
+        localdb = {}
+
+    def main():
+        await(False)
+
+    def OnPrepare(ballot, value):
+        if decide(ballot, value):
+            send(Agree(ballot, self), _source)
+        else:
+            send(Deny(ballot, self), _source)
+
+    def OnCommit(ballot):
+        val = staging.get(ballot)
+        if val != None:
+            localdb[ballot] = val
+        else:
+            output("Protocol error: Committing non-existent transaction.")
+
+    def OnAbort(ballot):
+        staging.pop(ballot, None)
+        
+    def decide(ballot, val):
+        if randint(0, 100) > failure_rate:
+            staging[ballot] = val
+            return True
+        else:
+            return False

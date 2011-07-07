@@ -1,0 +1,52 @@
+
+class P(DistProcess):
+    def setup(left, right):
+        left = left             # Peer to the left
+        right = right           # Peer to the right
+        status = "Unknown"      # Current status, can be {"Unknown", "Leader"}
+        phase_left, phase_right = False, False
+        phase = 0
+
+    def main():
+        while True:
+            send(Token(self, 'out', 1 << phase), left)
+            send(Token(self, 'out', 1 << phase), right)
+
+            await(status == "Leader" or (phase_left and phase_right))
+
+            if (status == "Leader"):
+                output("I am leader at phase %d!"%phase)
+                break
+            else:
+                phase += 1
+                phase_left, phase_right = False, False
+
+    def OnToken(v, direction, h):
+        if _source == left and direction == 'out':
+            if v > self and h > 1:
+                send(Token(v, 'out', h-1), right)
+            elif v > self and h == 1:
+                send(Token(v, 'in', 1), left)
+            elif v == self:
+                status = "Leader"
+
+        elif _source == right and direction == 'out':
+            if v > self and h > 1:
+                send(Token(v, 'out', h-1), left)
+            elif v > self and h == 1:
+                send(Token(v, 'in', 1), right)
+            elif v == self:
+                status = "Leader"
+
+
+        elif _source == left and direction == 'in':
+            if v > self:
+                send(Token(v, 'in', 1), right)
+            elif v == self:
+                phase_left = True
+            
+        elif _source == right and direction == 'in':
+            if v > self:
+                send(Token(v, 'in', 1), left)
+            elif v == self:
+                phase_right = True

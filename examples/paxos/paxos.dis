@@ -1,0 +1,56 @@
+
+class Proposer(DistProcess):
+    def setup(acceptors, totprocs, quorum):
+        acpts = acceptors       # The set of all acceptors
+        nprocs = totprocs       # Total number of processes in the system, used to generate unique proposal numbers
+        maj = quorum            # Size of a "quorum"
+        propNum, propVal = self, self # Our own proposal number and value
+
+    def main():
+        while True:
+             --prepare
+             send(Prepare(propNum, self), acpts)
+             await(len(received(Promise(propNum, vp, vv, a))) > maj, TIMEOUT)
+             --propose
+             if (not _timeout):
+                 # Choose the safe value. The len check is ugly but
+                 # neccessary, since to get rid of it we'll need a sane
+                 # default value for max([]), which I can't seem to find
+                 safeval = -1
+                 if (len(received(Promise(propNum, vp, vv, a))) > 0):
+                     _, safeval, _ = max(received(Promise(propNum, vp, vv, a)))
+                 if (safeval >= 0):
+                     propVal = safeval
+                 send(Propose(propNum, propVal, self), acpts)
+                 await(len(received(Accept(propNum, propVal, a)))>maj, TIMEOUT)
+                 if (not _timeout): # We're done
+                     output("Succeeded in proposing %d"%propVal)
+                     return
+             --reinit
+             output("Failed ballot %d, retrying."%propNum)
+             # Try again with a higher proposal number
+             propNum = next_prop_num()
+
+    def next_prop_num():
+        return propNum+nprocs
+
+class Acceptor(DistProcess):
+    def setup():
+        pass
+
+    def main():
+        await(False)
+
+    def OnPrepare(n, p):
+        if (len(sent(Promise(_pn, _vpn, _vv, self))) == 0 or
+            n > max(sent(Promise(_pn, _vpn, _vv, self))[0])):
+            if len(sent(Accept(_vpn, _vv, self))) > 0:
+                maxpn, votedval, _ = max(sent(Accept(_vpn, _vv, self)))
+                send(Promise(n, maxpn, votedval, self), p)
+            else:
+                send(Promise(n, -1, -1, self), p)
+
+    def OnPropose(n, v, p):
+        if (len(sent(Promise(_pn, _vpn, _vv, self))) == 0 or
+            n >= max(sent(Promise(_pn, _vpn, _vv, self))[0])):
+            send(Accept(n, v, self), p)

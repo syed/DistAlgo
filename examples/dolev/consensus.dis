@@ -1,0 +1,27 @@
+class P(DistProcess):
+      def setup(v, mf, ps):
+            x = -1
+            V = {v: False}
+            s = ps
+            maxfail = mf+1
+            receiveflag = False
+
+      def main():
+            --start
+            for round in range(1, maxfail):
+                --one_round
+                for k in V.keys():
+                    if (not V[k]):
+                        send(Value(k), s)
+                        V[k] = True
+                await(receiveflag)
+                receiveflag = False
+            --end
+            for v in V.keys():
+                x = max(x, v)
+            output("x = %d" % (x))
+
+      def OnValue(v):
+         receiveflag = True
+         if (v not in V.keys()):
+               V[v] = False

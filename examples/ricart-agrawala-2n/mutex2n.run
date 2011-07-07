@@ -1,0 +1,19 @@
+from runtime.sim import DistProcess
+
+global DistProcess
+global TIMEOUT
+TIMEOUT = 3
+dist_source("mutex2n.dis")
+
+def config():
+
+ # configuration: number of processes
+ n = 5
+
+ # create n process
+ ps = createprocs(P,n)
+ config_sim_total_units(100)
+ config_trace(True)
+
+ # setup the processes
+ for p in ps: AllProcesses[p].setup(ps-{p})

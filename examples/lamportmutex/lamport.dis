@@ -1,0 +1,45 @@
+
+class P(DistProcess):
+
+ def setup(ps):
+   c = 0
+   q = []
+   s = ps
+
+ def cs():
+   # to enter cs, enque and send request to all, then await replies from all
+     --start
+     reqc = logical_clock()
+     q.append((reqc, self))
+     send(Request(), s)
+
+     --reply
+     await(all((p2 == self or (reqc, self) <= (c2, p2)) for (c2, p2) in q) and
+           all(any(c3 > reqc for c3 in received(Reply(c3, p3))) for p3 in s))
+
+   # critical section
+     --cs
+     output("In critical section")
+     work()
+
+   # to exit cs, deque and send releases to all
+     --end
+     q.remove((reqc, self))
+     output("Releasing critical section")
+     send(Release(reqc), s)
+     reqc = None
+   
+ def main():
+   while True:
+     cs()
+     work()
+
+ # when receiving requests from others, enque and reply
+ def OnRequest():
+     q.append((_timestamp, _source))
+     send(Reply(logical_clock(), self), _source)
+
+ # when receiving release from others, deque
+ def OnRelease(time):
+     if ((time, _source) in q):
+       q.remove((time, _source))

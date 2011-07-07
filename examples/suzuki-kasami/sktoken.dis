@@ -1,0 +1,55 @@
+
+class P(DistProcess):
+      def setup(otherp):
+            ps = otherp
+            token = dict((p, 0) for p in (ps + [self]) )
+            requests = dict((p, 0) for p in ps)
+            token_held = False
+            token_present = False
+            token_received = False
+
+      def set_token(hastoken):
+            token_present = hastoken
+            token_received = hastoken
+
+      def cs():
+          --request
+          if (not token_present):
+              send(Request(), ps)
+          --await
+          await(token_received)
+
+           # IN CS!
+          token_present = True
+          token_held = True
+          output("In CS!")
+          work()
+          --release
+          output("Release CS!")
+          token_received = False
+          release()
+
+      def release():
+           token[self] = logical_clock()
+           token_held = False
+           for p in ps:
+                 # The order in which we enumerate peers in this loop is
+                 # determined by perm(n, i). This ordering is important in
+                 # order to guarantee fairness of the algorithm.
+                 if (requests[p] > token[p] and token_present):
+                       token_present = False
+                       output("Sending token to %d" % (p))
+                       send(Token(), p)
+
+      def main():
+            while True:
+                  cs()
+                  work()
+
+      def OnRequest():
+           requests[_source] = max(requests[_source], _timestamp)
+           if (token_present and not token_held):
+                 release()
+
+      def OnToken():
+           token_received = True

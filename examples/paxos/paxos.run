@@ -1,0 +1,17 @@
+from runtime.sim import DistProcess
+
+global DistProcess
+global TIMEOUT
+TIMEOUT = 5
+
+dist_source("paxos.dis")
+
+def config():
+    nproposers = 5
+    nacceptors = 10
+
+    acceptors = createprocs(Acceptor, nacceptors, [])
+    proposers = createprocs(Proposer, nproposers,
+                            [acceptors, nproposers+nacceptors, nacceptors/2])
+
+    config_max_event_timeout(3)

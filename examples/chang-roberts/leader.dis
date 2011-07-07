@@ -1,0 +1,31 @@
+
+class P(DistProcess):
+    def setup(nextid):
+        next = nextid
+        awake = True
+        leaderid = None
+    
+
+    def main():
+        --start
+        send(Election(), next)
+        awake = True
+        --wait_for_result
+        await(not awake)
+        --end
+        output("Leader is %d."%(leaderid))
+
+    def OnElection():
+        if (_source > self):
+            send(Election(), next)
+        elif (_source < self and (not awake)):
+            send(Election(), next)
+        elif (_source == self):
+            send(Leader(), next)
+        awake = True
+
+    def OnLeader():
+        leaderid = _source
+        awake = False
+        if (_source != self):
+            send(Leader(), next)

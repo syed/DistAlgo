@@ -1,0 +1,83 @@
+
+class Proposer(DistProcess):
+    def setup(acceptors, nps, quorumSize, tolerance):
+        acpts = acceptors       # Set of acceptors
+        total_procs = nps       # Total number of processes in the system,
+                                # used to generate unique proposal numbers
+        maj = quorumSize        # size of a byzquorum
+        f = tolerance           # Number of faulty processes to tolerate
+        propNum = self          # Current proposal(ballot) number
+        propVal = self          # Current value to propose
+
+    def main():
+        while True:
+            --prepare
+            send(Prepare(propNum, self), acpts)
+            await(len(received(Promise(propNum, _vp, _vv, _a)))>maj, TIMEOUT)
+            --propose
+            if (not _timeout):
+                safeval = -1
+                props = [(n, v)
+                         for (n, v, _) in
+                         received(Promise(propNum, vp,vv, a))
+                         if len(received(Promise(propNum, n, v, a))) > f]
+                if (len(props) > 0):
+                    _, safeval = max(props)
+                if (safeval >= 0):
+                    propVal = safeval
+                    
+                send(OneC(propNum, propVal, self), acpts)
+                await(len(received(TwoAv(propNum, propVal, a))) > maj, TIMEOUT)
+                if (not _timeout): # We're done
+                     return
+            --reinit
+            output("Failed ballot %d, retrying."%(propNum))
+             # Try again with a higher proposal number
+            propNum = next_prop_num()
+
+    def next_prop_num():
+        return propNum+total_procs
+
+class Acceptor(DistProcess):
+    def setup(allprocs, quorumSize, tolerence):
+        peers = allprocs
+        maj = quorumSize
+        f = tolerence
+
+    def main():
+        await(False)
+
+    def OnPrepare(n, p):
+        if (n > maxpromised()):
+            if (len(sent(TwoAv(_vpn, _vv, self))) > 0):
+                maxpn, votedval, _ = max(sent(TwoAv(_vpn, _vv, self)))
+                send(Promise(n, maxpn, votedval, self), peers)
+            else:
+                send(Promise(n, -1, -1, self), peers)
+
+    def OnOneC(n, v, p):
+        if (n >= maxpromised() and islegal(n, v) and
+            len(sent(TwoAv(n, _v, self))) == 0):
+            send(TwoAv(n, v, self), peers)
+            output("Sent 2av for %d in ballot %d"%(v, n))
+
+    def OnTwoAv(propnum, propval, p):
+        pass
+
+    def maxpromised():
+        pns = sent(Promise(pn, vp, vv, a))
+        if (len(pns) == 0): return -1
+        else:
+            maxpn, _, _, _ = max(pns)
+            return maxpn
+
+    def islegal(propNum, propVal):
+        props = [(n, v)
+                 for (n, v, _) in received(Promise(propNum, vp, vv, a1))
+                 if len(received(Promise(propNum, n, v, a2))) > f]
+        if (len(props) > 0):
+            _, safeval = max(props)
+            if (safeval == -1 or propVal == safeval): return True
+            else: return False
+        else:
+            return False

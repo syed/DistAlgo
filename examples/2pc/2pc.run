@@ -1,0 +1,18 @@
+from runtime.sim import DistProcess
+
+global DistProcess
+global TIMEOUT
+TIMEOUT = 5
+
+dist_source("2pc.dis")
+
+def config():
+    nproposers = 5
+    nacceptors = 10
+    fail_rate = 0
+
+    accpts = createprocs(Acceptor, nacceptors, [fail_rate])
+    propsrs = createprocs(Proposer, nproposers, [accpts, nproposers])
+
+    config_max_event_timeout(3)
+    config_trace(True)
