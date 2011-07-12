@@ -1,6 +1,7 @@
 import ast
 from ast import *
 from .exceptions import InvalidEventException
+from .consts import LOGICAL_TIMESTAMP_VARNAME, MSG_SRCNODE_VARNAME
 
 class EventObject:
     """Encapsulates info about events.
@@ -116,8 +117,8 @@ class EventTransformer(NodeTransformer):
 
     def genFuncDef(self, name, vlist, body):
         arglist = [arg(v, None) for (i, v) in vlist]
-        arglist.append(arg("_timestamp", None))
-        arglist.append(arg("_source", None))
+        arglist.append(arg(LOGICAL_TIMESTAMP_VARNAME, None))
+        arglist.append(arg(MSG_SRCNODE_VARNAME, None))
         args = arguments(arglist, None, None, [], None,
                          None, [], None)
         return FunctionDef(name, args, body, [], None)

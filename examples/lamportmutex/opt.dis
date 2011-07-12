@@ -1,0 +1,57 @@
+import heapq
+
+class P(DistProcess):
+
+ def setup(ps):
+   c = 0
+   q = []
+   s = ps
+   total = len(s)
+   count = 0
+   responded = set()
+
+ def cs():
+     --start
+     c = logical_clock()
+     responded = set()
+     count = 0
+
+     send(Request(c), s)
+
+     --reply
+     await(len(q) == 0 or (c, self) < q[0] and count == total)
+
+   # critical section
+     --cs
+     output("In critical section")
+     work()
+
+   # to exit cs, deque and send releases to all
+     --release
+     output("Releasing critical section")
+     send(Release(c), s)
+     --end
+     reqc = None
+
+ def main():
+   while True:
+     cs()
+     work()
+
+ def OnRequest(c2):
+     heapq.heappush(q, (c2, _source))
+     send(Reply(logical_clock()), _source)
+
+ def OnReply(c2):
+     if (c, self) < (c2, _source):
+         if _source in s:
+             if _source not in responded:
+                 responded.add(_source)
+                 count += 1
+
+ def OnRelease(c2):
+     newq = []
+     for m in q:
+         if m != (c2, _source): newq.append(m)
+     heapq.heapify(newq)
+     q = newq

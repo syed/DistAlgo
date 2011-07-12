@@ -3,6 +3,7 @@ import multiprocessing, threading, random, time, queue, sys, traceback, os, sign
 AllProcesses = []
 PerformanceCounters = {}
 PerformancePipe = multiprocessing.Queue()
+PrintProcStats = False
 
 def maximum(iterable):
     if (len(iterable) == 0): return -1
@@ -32,10 +33,17 @@ def config_trace(trace):
     for p in AllProcesses:
         p._trace = trace
 
+def config_print_individual_proc_stats(p):
+    global PrintProcStats
+    PrintProcStats = p
+
 def init_performance_counters():
     global PerformanceCounters
     for i in range(0, len(AllProcesses)):
-        PerformanceCounters[i] = {'sent': 0, 'unitsdone' : 0, 'totaltime' : 0}
+        PerformanceCounters[i] = {'sent': 0, 'unitsdone' : 0, 'totaltime' : 0,
+                                  'totalusrtime' : 0, 'totalsystime' : 0,
+                                  'usertime' :0 , 'systemtime' : 0,
+                                  'elapsedtime' : 0}
 
 def start_simulation():
     global PerformanceCounters
@@ -62,23 +70,37 @@ def print_performance_statistics(outfd):
 
     statstr = "***** Statistics *****\n"
     tot_sent = 0
+    tot_usrtime = 0
+    tot_systime = 0
     tot_time = 0
     tot_units = 0
     for key in PerformanceCounters:
         val = PerformanceCounters[key]
         tot_sent += val['sent']
+        tot_usrtime += val['totalusrtime']
+        tot_systime += val['totalsystime']
         tot_time += val['totaltime']
         tot_units += val['unitsdone']
-        statstr += ("### Process %d: \n" % key)
-        statstr += ("\tTotal messages sent: %d\n" % val['sent'])
-        if (val['unitsdone'] > 0):
-            statstr += ("\tAverage message per work unit: %f\n" %
-                        (val['sent']/val['unitsdone']))
-            statstr += ("\tAverage time per work unit: %f\n" %
-                        (val['totaltime']/val['unitsdone']))
+        if PrintProcStats:
+            statstr += ("### Process %d: \n" % key)
+            statstr += ("\tTotal messages sent: %d\n" % val['sent'])
+            statstr += ("\tTotal usertime: %f\n" % val['usertime'])
+            statstr += ("\tTotal systemtime: %f\n" % val['systemtime'])
+            statstr += ("\tTotal time: %f\n" % val['elapsedtime'])
+            if (val['unitsdone'] > 0):
+                statstr += ("\tAverage messages per work unit: %f\n" %
+                            (val['sent']/val['unitsdone']))
+                statstr += ("\tAverage elapsed time per work unit: %f\n" %
+                            (val['totaltime']/val['unitsdone']))
+    statstr += ("*** Total usertime: %f\n" % tot_usrtime)
+    statstr += ("*** Total systemtime: %f\n" % tot_systime)
     if (tot_units > 0):
         statstr += ("*** Overall average messages per unit: %f\n"
                     % (tot_sent/tot_units))
+        statstr += ("*** Overall average usertime per unit: %f\n"
+                    % (tot_usrtime/tot_units))
+        statstr += ("*** Overall average systime per unit: %f\n"
+                    % (tot_systime/tot_units))
         statstr += ("*** Overall average time per unit: %f\n"
                     % (tot_time/tot_units))
 

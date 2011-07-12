@@ -1,3 +1,4 @@
+from .consts import DISTALGO_BASE_CLASSNAME
 from ast import *
 
 class InsertSelf(NodeTransformer):
@@ -70,7 +71,8 @@ class ProcessMembers(NodeVisitor):
 class ProcessRun(NodeTransformer):
     def __init__(self):
         self.stmt = Expr(Call
-                         (Attribute(Name("DistProcess", Load()), "run", Load()),
+                         (Attribute(Name(DISTALGO_BASE_CLASSNAME, Load()),
+                                    "run", Load()),
                           [Name("self", Load())],
                           [], None, None));
 

@@ -36,8 +36,13 @@ class Proposer(DistProcess):
                 if (safeval >= 0):
                     self.propVal = safeval
                 self.send(('OneC', self.propNum, self.propVal, self._id), self.acpts)
-                while (not len((self._has_receive_1(self.propNum, self.propVal) > self.maj), TIMEOUT)):
+                __await_timer_2 = time.time()
+                _timeout = False
+                while (not (len(self._has_receive_1(self.propNum, self.propVal)) > self.maj)):
                     self._process_event_(self._event_patterns, True)
+                    if (time.time() - (__await_timer_2) > TIMEOUT):
+                        _timeout = True
+                        break
                 if (not _timeout):
                     return 
             self._label_('reinit')
@@ -47,7 +52,7 @@ class Proposer(DistProcess):
     def next_prop_num(self):
         return self.propNum + (self.total_procs)
 
-    def _receive_handler_0(self, _propNum, __vp, __vv, __a, _source):
+    def _receive_handler_0(self, _propNum, __vp, __vv, __a, _timestamp, _source):
         self._receive_messages_0.add((_propNum, __vp, __vv, __a))
 
     def _has_receive_0(self, propNum):
@@ -56,7 +61,7 @@ class Proposer(DistProcess):
     def _has_receive_01(self, propNum, n, v):
         return [a_ for (propNum_, n_, v_, a_) in self._receive_messages_0 if (propNum_ == propNum) if (n_ == n) if (v_ == v)]
 
-    def _receive_handler_1(self, _propNum, _propVal, _a, _source):
+    def _receive_handler_1(self, _propNum, _propVal, _a, _timestamp, _source):
         self._receive_messages_1.add((_propNum, _propVal, _a))
 
     def _has_receive_1(self, propNum, propVal):
@@ -83,7 +88,7 @@ class Acceptor(DistProcess):
         while (not False):
             self._process_event_(self._event_patterns, True)
 
-    def _event_handler_3(self, n, p, _source):
+    def _event_handler_3(self, n, p, _timestamp, _source):
         if (n > self.maxpromised()):
             if (len(self._has_send_0()) > 0):
                 (maxpn, votedval, _) = max(self._has_send_0())
@@ -91,12 +96,12 @@ class Acceptor(DistProcess):
             else:
                 self.send(('Promise', n, (-1), (-1), self._id), self.peers)
 
-    def _event_handler_4(self, n, v, p, _source):
+    def _event_handler_4(self, n, v, p, _timestamp, _source):
         if ((n >= self.maxpromised()) and self.islegal(n, v) and (len(self._has_send_01(n)) == 0)):
             self.send(('TwoAv', n, v, self._id), self.peers)
             self.output('Sent 2av for %d in ballot %d' % ((v, n)))
 
-    def _event_handler_5(self, propnum, propval, p, _source):
+    def _event_handler_5(self, propnum, propval, p, _timestamp, _source):
         pass
 
     def maxpromised(self):
@@ -118,7 +123,7 @@ class Acceptor(DistProcess):
         else:
             return False
 
-    def _send_handler_0(self, __vpn, __vv, _self, _source):
+    def _send_handler_0(self, __vpn, __vv, _self, _timestamp, _source):
         self._send_messages_0.add((__vpn, __vv, _self))
 
     def _has_send_0(self):
@@ -127,13 +132,13 @@ class Acceptor(DistProcess):
     def _has_send_01(self, n):
         return [(_v_, self_) for (n_, _v_, self_) in self._send_messages_0 if (n_ == n)]
 
-    def _send_handler_1(self, _pn, _vp, _vv, _a, _source):
+    def _send_handler_1(self, _pn, _vp, _vv, _a, _timestamp, _source):
         self._send_messages_1.add((_pn, _vp, _vv, _a))
 
     def _has_send_1(self):
         return [(pn_, vp_, vv_, a_) for (pn_, vp_, vv_, a_) in self._send_messages_1]
 
-    def _receive_handler_2(self, _propNum, _vp, _vv, _a1, _source):
+    def _receive_handler_2(self, _propNum, _vp, _vv, _a1, _timestamp, _source):
         self._receive_messages_2.add((_propNum, _vp, _vv, _a1))
 
     def _has_receive_2(self, propNum):

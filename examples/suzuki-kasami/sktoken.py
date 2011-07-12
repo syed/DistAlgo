@@ -16,6 +16,7 @@ class P(DistProcess):
 
     def set_token(self, hastoken):
         self.token_present = hastoken
+        self.token_received = hastoken
 
     def cs(self):
         self._label_('request')
@@ -42,9 +43,10 @@ class P(DistProcess):
                 self.output('Sending token to %d' % (p))
                 self.send(('Token',), p)
 
-    def run(self):
+    def main(self):
         while True:
             self.cs()
+            self.work()
 
     def _event_handler_0(self, _timestamp, _source):
         self.requests[_source] = max(self.requests[_source], _timestamp)

@@ -16,15 +16,14 @@ class P(DistProcess):
     def cs(self):
         self._label_('start')
         if (not self.token_held):
+            self.incr_logical_clock()
             self.send(('Request',), self.ps)
         self._label_('await')
         while (not self.token_held):
             self._process_event_(self._event_patterns, True)
         self.in_cs = True
-        self.output('In CS!')
         self.work()
         self._label_('release')
-        self.output('Releasing CS!')
         self.in_cs = False
         self.release()
 
@@ -40,6 +39,7 @@ class P(DistProcess):
     def main(self):
         while True:
             self.cs()
+            self.work()
 
     def _event_handler_0(self, g, _timestamp, _source):
         self.granted = g

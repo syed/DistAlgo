@@ -5,13 +5,14 @@ from .await import AwaitTransformer
 from .event import EventTransformer
 from .label import LabelTransformer
 from .mesgcomp import SentReceivedTransformer
-
+from .consts import DISTALGO_BASE_CLASSNAME
 from ast import *
 
-DISTALGO_BASE_CLASS = "DistProcess"
 
 class DistalgoTransformer(NodeTransformer):
-    """The main driver transformer for DisAlgo.
+    """The main compiler routine.
+
+    Walks the top level class definitions in the module.
     """
 
     def visit_ClassDef(self, node):
@@ -28,7 +29,7 @@ class DistalgoTransformer(NodeTransformer):
         result = False
         for b in node.bases:
             if (isinstance(b, Name)):
-                if (b.id == "DistProcess"):
+                if (b.id == DISTALGO_BASE_CLASSNAME):
                     result = True
                     break
         return result
@@ -92,7 +93,7 @@ class DistalgoTransformer(NodeTransformer):
 
     def genInitFunc(self, inf):
         body = []
-        body.append(Call(Attribute(Name("DistProcess", Load()),
+        body.append(Call(Attribute(Name(DISTALGO_BASE_CLASSNAME, Load()),
                                    "__init__", Load()),
                          [Name("self", Load()), Name("pid", Load()),
                           Name("pipe", Load()), Name("perf_pipe", Load())],

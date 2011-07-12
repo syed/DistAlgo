@@ -1,6 +1,7 @@
 """Main entry point"""
 
 import sys
+import time
 if sys.argv[0].endswith("__main__.py"):
     sys.argv[0] = "python -m disalgo"
 
@@ -41,9 +42,11 @@ from .compiler import dist_compile
 def main():
     (infilename, ps, opt, r) = parseArgs(sys.argv)
 
+    start = time.time()
     infd = open(infilename, 'r')
     pytree = dist_compile(infd)
     infd.close()
+    elapsed = time.time() - start
 
     pysource = to_source(pytree)
 
@@ -52,6 +55,7 @@ def main():
     outfd.write(pysource)
     outfd.close()
 
+    print("Total compilation time: %f second(s)." % elapsed)
     sys.exit(0)
 
 if __name__ == '__main__':

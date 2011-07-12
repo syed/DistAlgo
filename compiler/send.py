@@ -1,5 +1,6 @@
 from ast import *
 from .exceptions import InvalidSendException
+from .consts import SENDMSG_FUNNAME
 
 class SendTransformer(NodeTransformer):
     """Translates 'send' arguments into Tuples.
@@ -11,7 +12,7 @@ class SendTransformer(NodeTransformer):
     def visit_Expr(self, node):
         if (not (isinstance(node.value, Call) and 
                  isinstance(node.value.func, Name) and
-                 (node.value.func.id == "send"))):
+                 (node.value.func.id == SENDMSG_FUNNAME))):
             return node
 
         if (len(node.value.args) != 2):

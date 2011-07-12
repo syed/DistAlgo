@@ -3,7 +3,7 @@ from runtime.sim import DistProcess
 global DistProcess
 global TIMEOUT
 TIMEOUT = 3
-dist_source("lamport.dis")
+dist_source("opt.dis")
 
 def config():
 

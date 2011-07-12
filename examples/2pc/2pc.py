@@ -5,7 +5,7 @@ class Proposer(DistProcess):
 
     def __init__(self, pid, pipe, perf_pipe):
         DistProcess.__init__(self, pid, pipe, perf_pipe)
-        self._event_patterns = [EventPattern(Event.receive, 'Agree', [], [(1, 'ballot')], [self._receive_handler_0]), EventPattern(Event.receive, 'Deny', [], [(1, 'ballot')], [self._receive_handler_1])]
+        self._event_patterns = [EventPattern(Event.receive, 'Agree', [], [(1, 'ballot'), (2, 'src')], [self._receive_handler_0]), EventPattern(Event.receive, 'Deny', [], [(1, 'ballot'), (2, 'src')], [self._receive_handler_1])]
         self._sent_patterns = []
         self._label_events = {'transact_end': self._event_patterns, 'transact_start': self._event_patterns}
         self._receive_messages_0 = set()
@@ -42,17 +42,17 @@ class Proposer(DistProcess):
                 retry+=1
             self._label_('transact_end')
 
-    def _receive_handler_0(self, _ballot, _source):
-        self._receive_messages_0.add((_ballot,))
+    def _receive_handler_0(self, _ballot, _src, _timestamp, _source):
+        self._receive_messages_0.add((_ballot, _src))
 
     def _has_receive_0(self, ballot):
-        return [True for (ballot_,) in self._receive_messages_0 if (ballot_ == ballot)]
+        return [src_ for (ballot_, src_) in self._receive_messages_0 if (ballot_ == ballot)]
 
-    def _receive_handler_1(self, _ballot, _source):
-        self._receive_messages_1.add((_ballot,))
+    def _receive_handler_1(self, _ballot, _src, _timestamp, _source):
+        self._receive_messages_1.add((_ballot, _src))
 
     def _has_receive_1(self, ballot):
-        return [True for (ballot_,) in self._receive_messages_1 if (ballot_ == ballot)]
+        return [src_ for (ballot_, src_) in self._receive_messages_1 if (ballot_ == ballot)]
 
 
 class Acceptor(DistProcess):
@@ -72,20 +72,20 @@ class Acceptor(DistProcess):
         while (not False):
             self._process_event_(self._event_patterns, True)
 
-    def _event_handler_0(self, ballot, value, _source):
+    def _event_handler_0(self, ballot, value, _timestamp, _source):
         if self.decide(ballot, value):
-            self.send(('Agree', ballot), _source)
+            self.send(('Agree', ballot, self._id), _source)
         else:
-            self.send(('Deny', ballot), _source)
+            self.send(('Deny', ballot, self._id), _source)
 
-    def _event_handler_1(self, ballot, _source):
+    def _event_handler_1(self, ballot, _timestamp, _source):
         val = self.staging.get(ballot)
         if (val != None):
             self.localdb[ballot] = val
         else:
             self.output('Protocol error: Committing non-existent transaction.')
 
-    def _event_handler_2(self, ballot, _source):
+    def _event_handler_2(self, ballot, _timestamp, _source):
         self.staging.pop(ballot, None)
 
     def decide(self, ballot, val):

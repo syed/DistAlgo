@@ -10,6 +10,7 @@ class Proposer(DistProcess):
         propVal = self          # Current value to propose
 
     def main():
+        --start
         while True:
             --prepare
             send(Prepare(propNum, self), acpts)
@@ -29,6 +30,7 @@ class Proposer(DistProcess):
                 send(OneC(propNum, propVal, self), acpts)
                 await(len(received(TwoAv(propNum, propVal, a))) > maj, TIMEOUT)
                 if (not _timeout): # We're done
+                     --end
                      return
             --reinit
             output("Failed ballot %d, retrying."%(propNum))

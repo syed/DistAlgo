@@ -23,12 +23,13 @@ class P(DistProcess):
      work()
 
    # to exit cs, deque and send releases to all
-     --end
+     --release
      q.remove((reqc, self))
      output("Releasing critical section")
      send(Release(reqc), s)
+     --end
      reqc = None
-   
+
  def main():
    while True:
      cs()

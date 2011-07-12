@@ -61,6 +61,8 @@ class DistProcess(multiprocessing.Process):
     def run(self):
         self._comm.start()
         try:
+            self._totusrtime_start, self._totsystime_start, _, _, _ = os.times()
+            self._tottime_start = time.clock()
             self.main()
         except Exception as e:
             print("Unexpected error at process %d:%s"% (self._id, str(e)))
@@ -171,14 +173,31 @@ class DistProcess(multiprocessing.Process):
     def _begin_work_unit(self):
         if (self._current_units == self._total_units):
             self.output("Reached designated work unit count.")
+            usrtime, systime, _, _, _ = os.times()
+            self._perf_pipe.put((self._id, 'totalusrtime',
+                                 usrtime - self._totusrtime_start))
+            self._perf_pipe.put((self._id, 'totalsystime',
+                                 systime - self._totsystime_start))
+            self._perf_pipe.put((self._id, 'totaltime',
+                                 time.clock() - self._tottime_start))
             self._forever_message_loop()
-        self._p_work_start = time.clock()
+
+        self._time_unit_start = (os.times(), time.clock())
 
     def _end_work_unit(self):
+        usrtime_end, systime_end, _, _ ,_ = os.times()
+        tottime_end = time.clock()
+        ((usrtime_start, systime_start, _, _, _), tottime_start) = \
+            self._time_unit_start
+
         self._current_units += 1
         self._perf_pipe.put((self._id, 'unitsdone', 1))
-        self._perf_pipe.put((self._id, 'totaltime',
-                             time.clock() - self._p_work_start))
+        self._perf_pipe.put((self._id, 'usertime',
+                             usrtime_end - usrtime_start))
+        self._perf_pipe.put((self._id, 'systemtime',
+                             systime_end - systime_start))
+        self._perf_pipe.put((self._id, 'elapsedtime',
+                             tottime_end - tottime_start))
 
     def _forever_message_loop(self):
         while (True):

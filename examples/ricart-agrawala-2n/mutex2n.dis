@@ -21,10 +21,11 @@ class P(DistProcess):
      work()
 
    # to exit cs, deque and send releases to all
-     --end
+     --release
      reqc = None
      output("Is releasing.")
      send(Reply(logical_clock()), waiting)
+     --end
      waiting = set()
      replied = set()
    

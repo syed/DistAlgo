@@ -4,7 +4,7 @@ class P(DistProcess):
         DistProcess.__init__(self, pid, pipe, perf_pipe)
         self._event_patterns = [EventPattern(Event.receive, 'Request', [], [], [self._event_handler_0]), EventPattern(Event.receive, 'Reply', [], [(1, 'lc')], [self._event_handler_1])]
         self._sent_patterns = []
-        self._label_events = {'cs': self._event_patterns, 'start': self._event_patterns, 'end': self._event_patterns, 'reply': self._event_patterns}
+        self._label_events = {'cs': self._event_patterns, 'start': self._event_patterns, 'end': self._event_patterns, 'release': self._event_patterns, 'reply': self._event_patterns}
 
     def setup(self, ps):
         self.reqc = None
@@ -22,10 +22,12 @@ class P(DistProcess):
         self._label_('cs')
         self.output('In critical section')
         self.work()
-        self._label_('end')
+        self._label_('release')
         self.reqc = None
         self.output('Is releasing.')
-        self.send(('Reply', self.reqc, self._id), self.waiting)
+        self.send(('Reply', 
+        self.logical_clock()), self.waiting)
+        self._label_('end')
         self.waiting = set()
         self.replied = set()
 

@@ -1,6 +1,7 @@
 from ast import *
 from .event import EventObject
 from .exceptions import InvalidReceivedException, InvalidSentException
+from .consts import LOGICAL_TIMESTAMP_VARNAME, MSG_SRCNODE_VARNAME, RECEIVED_FUNNAME, SENT_FUNNAME
 
 class SentReceivedTransformer(NodeTransformer):
     """Transforms 'sent' and 'received' statements.
@@ -51,7 +52,7 @@ class SentReceivedTransformer(NodeTransformer):
 
 
     def visit_Call(self, node):
-        if (isinstance(node.func, Name) and node.func.id == "received"):
+        if (isinstance(node.func, Name) and node.func.id == RECEIVED_FUNNAME):
             if (len(node.args) != 1 or (not isinstance(node.args[0], Call))):
                 raise InvalidReceivedException()
             etype = "receive"
@@ -59,7 +60,7 @@ class SentReceivedTransformer(NodeTransformer):
             return self._visit_call_main(EventObject(
                     etype, mtype, Tuple(node.args[0].args, Load())))
 
-        elif (isinstance(node.func, Name) and node.func.id == "sent"):
+        elif (isinstance(node.func, Name) and node.func.id == SENT_FUNNAME):
             if (len(node.args) != 1 or (not isinstance(node.args[0], Call))):
                 raise InvalidSentException()
             etype = "send"
@@ -119,8 +120,8 @@ class SentReceivedTransformer(NodeTransformer):
 
     def genHandlerFuncDef(self, name, vname, vlist):
         arglist = [arg("_"+v, None) for (i, v) in vlist]
-        arglist.append(arg("_timestamp", None))
-        arglist.append(arg("_source", None))
+        arglist.append(arg(LOGICAL_TIMESTAMP_VARNAME, None))
+        arglist.append(arg(MSG_SRCNODE_VARNAME, None))
         args = arguments(arglist, None, None, [], None, None, [], None)
         m = Attribute(Name(vname, Load()), "add", Load())
         if (len(vlist) > 0):

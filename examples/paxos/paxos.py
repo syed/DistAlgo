@@ -1,6 +1,3 @@
-TIMEOUT = 5
-
-
 class Proposer(DistProcess):
 
     def __init__(self, pid, pipe, perf_pipe):
@@ -53,13 +50,13 @@ class Proposer(DistProcess):
     def next_prop_num(self):
         return self.propNum + (self.nprocs)
 
-    def _receive_handler_0(self, _propNum, _vp, _vv, _a, _source):
+    def _receive_handler_0(self, _propNum, _vp, _vv, _a, _timestamp, _source):
         self._receive_messages_0.add((_propNum, _vp, _vv, _a))
 
     def _has_receive_0(self, propNum):
         return [(vp_, vv_, a_) for (propNum_, vp_, vv_, a_) in self._receive_messages_0 if (propNum_ == propNum)]
 
-    def _receive_handler_1(self, _propNum, _propVal, _a, _source):
+    def _receive_handler_1(self, _propNum, _propVal, _a, _timestamp, _source):
         self._receive_messages_1.add((_propNum, _propVal, _a))
 
     def _has_receive_1(self, propNum, propVal):
@@ -83,7 +80,7 @@ class Acceptor(DistProcess):
         while (not False):
             self._process_event_(self._event_patterns, True)
 
-    def _event_handler_2(self, n, p, _source):
+    def _event_handler_2(self, n, p, _timestamp, _source):
         if ((len(self._has_send_0()) == 0) or (n > max(self._has_send_0()[0]))):
             if (len(self._has_send_1()) > 0):
                 (maxpn, votedval, _) = max(self._has_send_1())
@@ -91,17 +88,17 @@ class Acceptor(DistProcess):
             else:
                 self.send(('Promise', n, (-1), (-1), self._id), p)
 
-    def _event_handler_3(self, n, v, p, _source):
+    def _event_handler_3(self, n, v, p, _timestamp, _source):
         if ((len(self._has_send_0()) == 0) or (n >= max(self._has_send_0()[0]))):
             self.send(('Accept', n, v, self._id), p)
 
-    def _send_handler_0(self, __pn, __vpn, __vv, _self, _source):
+    def _send_handler_0(self, __pn, __vpn, __vv, _self, _timestamp, _source):
         self._send_messages_0.add((__pn, __vpn, __vv, _self))
 
     def _has_send_0(self):
         return [(_pn_, _vpn_, _vv_, self_) for (_pn_, _vpn_, _vv_, self_) in self._send_messages_0]
 
-    def _send_handler_1(self, __vpn, __vv, _self, _source):
+    def _send_handler_1(self, __vpn, __vv, _self, _timestamp, _source):
         self._send_messages_1.add((__vpn, __vv, _self))
 
     def _has_send_1(self):
