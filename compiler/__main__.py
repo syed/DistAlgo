@@ -5,26 +5,30 @@ import time
 if sys.argv[0].endswith("__main__.py"):
     sys.argv[0] = "python -m disalgo"
 
+args = dict()
 
 def parseArgs(argv):
     if (len(argv) < 2):
         printUsage(argv[0])
         sys.exit(1)
 
-    printsource = False
-    optimize = False
-    sourcefile = None
-    run = False
+    global args
+    args['printsource'] = False
+    args['optimize'] = False
+    args['sourcefile'] = None
+    args['run'] = False
+    args['full'] = False
     for arg in argv:
         if (arg == "-p"):
-            printsource = True
+            args['printsource'] = True
         elif (arg == "-o"):
-            optimize = True
+            args['optimize'] = True
         elif (arg == "-r"):
-            run = True
+            args['run'] = True
+        elif (arg == "-F" or arg == "--full"):
+            args['full'] = True
         else:
-            sourcefile = arg
-    return (sourcefile, printsource, optimize, run)
+            args['sourcefile'] = arg
 
 def printUsage(name):
     usage = """
@@ -40,17 +44,17 @@ from .codegen import to_source
 from .compiler import dist_compile
 
 def main():
-    (infilename, ps, opt, r) = parseArgs(sys.argv)
+    parseArgs(sys.argv)
 
     start = time.time()
-    infd = open(infilename, 'r')
+    infd = open(args['sourcefile'], 'r')
     pytree = dist_compile(infd)
     infd.close()
     elapsed = time.time() - start
 
     pysource = to_source(pytree)
 
-    outfile = infilename[:-4] + ".py"
+    outfile = args['sourcefile'][:-4] + ".py"
     outfd = open(outfile, 'w')
     outfd.write(pysource)
     outfd.close()
