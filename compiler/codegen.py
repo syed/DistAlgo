@@ -149,7 +149,7 @@ class SourceGenerator(NodeVisitor):
         self.newline(node)
         for idx, target in enumerate(node.targets):
             if idx:
-                self.write(', ')
+                self.write(' = ')
             self.visit(target)
         self.write(' = ')
         self.assigning = True
