@@ -56,11 +56,11 @@ def start_simulation():
     try:
         while (True):
             (pid, event_type, data) = PerformancePipe.get(True)
-            PerformanceCounters[pid][event_type] += data
+            if PerformanceCounters.get(pid) != None:
+                PerformanceCounters[pid][event_type] += data
     except Exception:
         err_info = sys.exc_info()
-        print("Caught unexpect exception %s at comm thread[%d]"%
-              (self._id, str(err_info[0])))
+        print("Caught global unexpect exception:")
         traceback.printtb(err_info[2])
     except KeyboardInterrupt:
         pass
@@ -74,8 +74,7 @@ def print_performance_statistics(outfd):
     tot_systime = 0
     tot_time = 0
     tot_units = 0
-    for key in PerformanceCounters:
-        val = PerformanceCounters[key]
+    for key, val in PerformanceCounters.items():
         tot_sent += val['sent']
         tot_usrtime += val['totalusrtime']
         tot_systime += val['totalsystime']
@@ -92,8 +91,13 @@ def print_performance_statistics(outfd):
                             (val['sent']/val['unitsdone']))
                 statstr += ("\tAverage elapsed time per work unit: %f\n" %
                             (val['totaltime']/val['unitsdone']))
+
+    statstr += ("* Total procs: %d\n" % len(PerformanceCounters))
     statstr += ("*** Total usertime: %f\n" % tot_usrtime)
     statstr += ("*** Total systemtime: %f\n" % tot_systime)
+    statstr += ("*** Average usertime: %f\n" % (tot_usrtime/len(PerformanceCounters)))
+    statstr += ("*** Average time: %f\n" % ((tot_usrtime + tot_systime)/len(PerformanceCounters)))
+
     if (tot_units > 0):
         statstr += ("*** Overall average messages per unit: %f\n"
                     % (tot_sent/tot_units))

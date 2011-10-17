@@ -18,7 +18,11 @@ class DistProcess(multiprocessing.Process):
             try:
                 while self._running:
                     (src, clock, data) = self._p.receive()
-                    self._queue.put(Event(Event.receive, src, clock, data))
+                    e = Event(Event.receive, src, clock, data)
+                    self._queue.put(e)
+                    # Dispatch to child procs
+                    for c in self._p._child_procs:
+                        c._pipe.put((src, clock, data))
             except Exception as e:
                 traceback.print_tb(e.__traceback__)
                 err_info = sys.exc_info()
@@ -28,13 +32,11 @@ class DistProcess(multiprocessing.Process):
             except KeyboardInterrupt:
                 pass
 
-    def __init__(self, pid, pipe, perf_pipe):
+    def __init__(self, pid, pipe, perf_pipe, parent = None):
         multiprocessing.Process.__init__(self)
         self._id = pid
         self._pipe = pipe
         self._perf_pipe = perf_pipe
-        self._event_queue = queue.Queue() # Queue used to communicate with Comm
-        self._comm = DistProcess.Comm(pid, self._event_queue, self)
         self._running = True
 
         self._logical_clock = 0
@@ -54,13 +56,21 @@ class DistProcess(multiprocessing.Process):
 
         self._trace = False
 
+        self._parent = parent
+        self._child_procs = []
+
     def term_handler(self):
         print("C-%d Terminating..." % self._id)
         sys.exit(1)
 
-    def run(self):
+    def _start_comm_thread(self):
+        self._event_queue = queue.Queue() # Queue used to communicate with Comm
+        self._comm = DistProcess.Comm(self._id, self._event_queue, self)
         self._comm.start()
+
+    def run(self):
         try:
+            self._start_comm_thread()
             self._totusrtime_start, self._totsystime_start, _, _, _ = os.times()
             self._tottime_start = time.clock()
             self.main()
@@ -75,6 +85,16 @@ class DistProcess(multiprocessing.Process):
 
     def output(self, message):
         print("%s[%d]: %s"%(self.__class__.__name__, self._id, message))
+
+    def spawn(self, pcls, args):
+        idx = len(self._child_procs)
+        p = pcls(idx, multiprocessing.Queue(), self._perf_pipe)
+        self._child_procs.append(p)
+        p.setup(*args)
+        p._set_all_processes(self._allprocs)
+        p._trace = self._trace
+        p.start()
+        return idx
 
     # Wrapper functions for message passing:
     def send(self, data, to):
@@ -159,7 +179,7 @@ class DistProcess(multiprocessing.Process):
 
                     args = []
                     for (index, name) in p.var:
-                        args.append(event.data[index])
+                        args.append(e.data[index])
                     args.append(e.timestamp)
                     args.append(e.source)
                     for h in p.handlers:

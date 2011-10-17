@@ -60,11 +60,12 @@ class DistalgoTransformer(NodeTransformer):
         info.memberfuncs.add("send")
         info.memberfuncs.add("receive")
         info.memberfuncs.add("output")
+        info.memberfuncs.add("spawn")
         info.memberfuncs.add("logical_clock")
         info.memberfuncs.add("incr_logical_clock")
 
         # 0. gather member funcs and vars
-        ProcessMembers(info).visit(node)
+        node = ProcessMembers(info).visit(node)
 
         node = SendTransformer(info).visit(node)
 

@@ -18,24 +18,28 @@ class LabelTransformer(NodeTransformer):
         self.hasLabelAst = hasattr(ast, "Label")
         info.memberfuncs.add(LABEL_FUNC)
 
+    def insert_labels(self, body):
+        new_body = []
+        for stmt in body:
+            if isinstance(stmt, Expr):
+                if (isinstance(stmt.value, UnaryOp) and
+                    isinstance(stmt.value.op, USub) and
+                    isinstance(stmt.value.operand, UnaryOp) and
+                    isinstance(stmt.value.operand.op, USub) and
+                    isinstance(stmt.value.operand.operand, Name)):
+
+                    fullname = stmt.value.operand.operand.id
+                    self.info.labels.add(fullname)
+                    stmt = self.genLabelCall(stmt, fullname)
+            new_body.append(stmt)
+        return new_body
+
     def visit_Block(self, node):
         new_node = self.generic_visit(node)
         if not self.hasLabelAst:
-            new_body = []
-            for stmt in new_node.body:
-                if isinstance(stmt, Expr):
-                    if (isinstance(stmt.value, UnaryOp) and
-                        isinstance(stmt.value.op, USub) and
-                        isinstance(stmt.value.operand, UnaryOp) and
-                        isinstance(stmt.value.operand.op, USub) and
-                        isinstance(stmt.value.operand.operand, Name)):
-
-                        fullname = stmt.value.operand.operand.id
-                        self.info.labels.add(fullname)
-                        stmt = self.genLabelCall(stmt, fullname)
-                new_body.append(stmt)
-            new_node.body = new_body
-
+            new_node.body = self.insert_labels(new_node.body)
+            if hasattr(new_node, "orelse"):
+                new_node.orelse = self.insert_labels(new_node.orelse)
         return new_node
 
     visit_FunctionDef = visit_Block

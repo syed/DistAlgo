@@ -38,7 +38,7 @@ class InsertSelf(NodeTransformer):
             node.args.args.insert(0, arg("self", None))
         return node
 
-class ProcessMembers(NodeVisitor):
+class ProcessMembers(NodeTransformer):
     """Extracts process local variable info from the 'setup' method.
     """
 
@@ -64,9 +64,16 @@ class ProcessMembers(NodeVisitor):
     def visit_FunctionDef(self, node):
         self.info.memberfuncs.add(node.name)
         if (node.name == "setup"):
+            argnames = {a.arg for a in node.args.args}
             vc = ProcessMembers.VarCollector()
             vc.visit(node)
-            self.info.membervars = self.info.membervars.union(vc.vars)
+            self.info.membervars |= vc.vars
+            self.info.membervars |= argnames
+
+            node.body.extend([Assign([Name(n, Store())], Name(n, Load()))
+                              for n in argnames])
+        return node
+
 
 class ProcessRun(NodeTransformer):
     def __init__(self):
