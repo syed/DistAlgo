@@ -10,9 +10,8 @@ class Proposer(DistProcess):
         propVal = self          # Current value to propose
 
     def main():
-        --start
         while True:
-            --prepare
+            --start
             send(Prepare(propNum, self), acpts)
             await(len(received(Promise(propNum, _vp, _vv, _a)))>maj, TIMEOUT)
             --propose
@@ -20,8 +19,8 @@ class Proposer(DistProcess):
                 safeval = -1
                 props = [(n, v)
                          for (n, v, _) in
-                         received(Promise(propNum, vp,vv, a))
-                         if len(received(Promise(propNum, n, v, a))) > f]
+                         received(Promise(propNum, _n, _v, _a))
+                         if len(received(Promise(propNum, n, v, _a))) > f]
                 if (len(props) > 0):
                     _, safeval = max(props)
                 if (safeval >= 0):
@@ -31,7 +30,8 @@ class Proposer(DistProcess):
                 await(len(received(TwoAv(propNum, propVal, a))) > maj, TIMEOUT)
                 if (not _timeout): # We're done
                      --end
-                     return
+                     output("Succeeded proposing %d" % propVal)
+                     continue
             --reinit
             output("Failed ballot %d, retrying."%(propNum))
              # Try again with a higher proposal number
@@ -41,9 +41,8 @@ class Proposer(DistProcess):
         return propNum+total_procs
 
 class Acceptor(DistProcess):
-    def setup(allprocs, quorumSize, tolerence):
+    def setup(allprocs, tolerence):
         peers = allprocs
-        maj = quorumSize
         f = tolerence
 
     def main():
@@ -61,7 +60,7 @@ class Acceptor(DistProcess):
         if (n >= maxpromised() and islegal(n, v) and
             len(sent(TwoAv(n, _v, self))) == 0):
             send(TwoAv(n, v, self), peers)
-            output("Sent 2av for %d in ballot %d"%(v, n))
+#            output("Sent 2av for %d in ballot %d"%(v, n))
 
     def OnTwoAv(propnum, propval, p):
         pass

@@ -1,18 +1,16 @@
-from runtime.sim import DistProcess
-
-global DistProcess
-global TIMEOUT
 TIMEOUT = 5
-
 dist_source("2pc.dis")
 
-def config():
+def main():
     nproposers = 5
     nacceptors = 10
-    fail_rate = 0
+    fail_rate = 5
+
+    config_endpoint("udp")
 
     accpts = createprocs(Acceptor, nacceptors, [fail_rate])
-    propsrs = createprocs(Proposer, nproposers, [accpts, nproposers])
+    propsrs = createprocs(Proposer, nproposers, [accpts])
+    config_max_event_timeout(accpts | propsrs, 3)
 
-    config_max_event_timeout(3)
-    config_trace(True)
+    startprocs(accpts)
+    startprocs(propsrs)

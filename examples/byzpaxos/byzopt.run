@@ -1,0 +1,18 @@
+TIMEOUT = 3
+dist_source("opt.dis")
+
+def main():
+    nproposers = 3
+    nacceptors = 15
+    f = (nacceptors - 1) /3
+
+    acceptors = createprocs(Acceptor, nacceptors)
+    proposers = createprocs(Proposer, nproposers)
+
+    setupprocs(acceptors, [(acceptors|proposers), nacceptors/2+f, f])
+    setupprocs(proposers, [acceptors, nacceptors/2+f, f])
+
+    config_max_event_timeout(acceptors|proposers, 1)
+
+    startprocs(acceptors)
+    startprocs(proposers)

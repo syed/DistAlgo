@@ -14,12 +14,13 @@ class P(DistProcess):
                     if (not V[k]):
                         send(Value(k), s)
                         V[k] = True
-                await(receiveflag)
-                receiveflag = False
+                        await(receiveflag)
+                        receiveflag = False
             --end
             for v in V.keys():
-                x = max(x, v)
-            output("x = %d" % (x))
+                if V[v]:
+                      x = max(x, v)
+            output("x = %r" % (x))
 
       def OnValue(v):
          receiveflag = True

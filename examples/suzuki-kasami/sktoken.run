@@ -1,24 +1,18 @@
-from runtime.sim import DistProcess
-from random import randint
-
-global DistProcess
-global TIMEOUT
 TIMEOUT = 3
 dist_source("sktoken.dis")
 
-def config():
+def main():
       n = 5
        # create n process
       ps = createprocs(P,n)
-      config_trace(True)
+#      config_trace(ps, True)
 
       # setup the processes
       ls = list(ps)
-      for i in range(0, len(ls)):
-            AllProcesses[ls[i]].setup([ls[i]
-                                for i in list(range(i+1, len(ls))) + 
-                                         list(range(0, i))])
+      lucky = ps.pop()
+      print("Lucky is %r"%lucky)
 
-      lucky = randint(0, len(ps)-1)
-      print("Lucky is %d"%lucky)
-      AllProcesses[lucky].set_token(True)
+      for i, p in enumerate(ls):
+          setupprocs({p}, [(ls[i+1:] + ls[0:i]), p == lucky])
+
+      startprocs(ls)

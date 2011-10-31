@@ -19,12 +19,12 @@ class P(DistProcess):
      send(Request(c), s)
 
      --reply
-     await(len(q) == 0 or (c, self) < q[0] and count == total)
+     await((len(q) == 0 or (c, self) < q[0]) and count == total)
 
    # critical section
      --cs
      output("In critical section")
-     work()
+#     work()
 
    # to exit cs, deque and send releases to all
      --release
@@ -36,7 +36,7 @@ class P(DistProcess):
  def main():
    while True:
      cs()
-     work()
+#     work()
 
  def OnRequest(c2):
      heapq.heappush(q, (c2, _source))

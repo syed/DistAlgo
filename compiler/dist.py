@@ -96,16 +96,15 @@ class DistalgoTransformer(NodeTransformer):
         body = []
         body.append(Call(Attribute(Name(DISTALGO_BASE_CLASSNAME, Load()),
                                    "__init__", Load()),
-                         [Name("self", Load()), Name("pid", Load()),
-                          Name("pipe", Load()), Name("perf_pipe", Load())],
+                         [Name("self", Load()), Name("parent", Load()),
+                          Name("initq", Load())],
                          [], None, None))
         body.append(inf.genEventPatternStmt())
         body.append(inf.genSentPatternStmt())
         body.append(inf.genLabelEventsStmt())
         body.extend(inf.newstmts)
 
-        arglist = [arg("self", None), arg("pid", None), arg("pipe", None),
-                   arg("perf_pipe", None)]
+        arglist = [arg("self", None), arg("parent", None), arg("initq", None)]
         args = arguments(arglist, None, None, [], None,
                          None, [], None)
         return FunctionDef("__init__", args, body, [], None)

@@ -12,13 +12,14 @@ class P(DistProcess):
      reqc = logical_clock()
      send(Request(reqc), s)
 
+#     output("Awaiting")
      --reply
      await(len(replied) == len(s))
 
    # critical section
      --cs
      output("In critical section")
-     work()
+#     work()
 
    # to exit cs, deque and send releases to all
      --release
@@ -32,12 +33,12 @@ class P(DistProcess):
  def main():
    while True:
      cs()
-     work()
 
  # when receiving requests from others, enque and reply
  def OnRequest():
      if (reqc == None or (_timestamp, _source) < (reqc, self)):
        send(Reply(logical_clock()), _source)
+       output("Sent reply%d -> %s"%(logical_clock(), str(_source)))
      else:
        waiting.add(_source)
 

@@ -1,19 +1,13 @@
-from runtime.sim import DistProcess
-
-global DistProcess
-global TIMEOUT
 TIMEOUT = 3
 dist_source("mutex.dis")
 
-
-def config():
+def main():
       n = 5
        # create n process
       ps = createprocs(P,n)
 
-      for i in ps:
-            if (i == 0):
-                  AllProcesses[0].setup(ps, True) # Proc 0 gets token first
-            else:
-                  AllProcesses[i].setup(ps, False)
-      config_trace(True)
+      config_trace(ps, True)
+      p = ps.pop()
+      setupprocs(ps, [ps|{p}, False])
+      setupprocs([p], [ps|{p}, True])
+      startprocs(ps|{p})

@@ -2,7 +2,7 @@
 SENT_PATTERN_VARNAME = "_sent_patterns"
 EVENT_PATTERN_VARNAME = "_event_patterns"
 LABEL_EVENTS_VARNAME = "_label_events"
-EVENT_PROC_FUNNAME = "_process_event_"
+EVENT_PROC_FUNNAME = "_process_event"
 
 TIMER_VARNAME = "__await_timer_"
 TIMEOUT_VARNAME = "_timeout"

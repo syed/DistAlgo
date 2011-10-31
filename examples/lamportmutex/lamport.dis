@@ -19,21 +19,21 @@ class P(DistProcess):
 
    # critical section
      --cs
-     output("In critical section")
-     work()
+#     output("In cs.%d"%logical_clock())
+#     work()
 
    # to exit cs, deque and send releases to all
      --release
      q.remove((reqc, self))
-     output("Releasing critical section")
      send(Release(reqc), s)
+#     output("release cs")
      --end
      reqc = None
 
  def main():
    while True:
      cs()
-     work()
+#     work()
 
  # when receiving requests from others, enque and reply
  def OnRequest():
@@ -42,5 +42,6 @@ class P(DistProcess):
 
  # when receiving release from others, deque
  def OnRelease(time):
+#     output("got release from %s"%str(_source))
      if ((time, _source) in q):
        q.remove((time, _source))

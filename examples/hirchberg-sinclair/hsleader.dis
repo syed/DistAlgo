@@ -1,8 +1,6 @@
 
 class P(DistProcess):
     def setup(left, right):
-        left = left             # Peer to the left
-        right = right           # Peer to the right
         status = "Unknown"      # Current status, can be {"Unknown", "Leader"}
         phase_left, phase_right = False, False
         phase = 0
@@ -16,7 +14,7 @@ class P(DistProcess):
 
             if (status == "Leader"):
                 output("I am leader at phase %d!"%phase)
-                break
+                await(False)
             else:
                 phase += 1
                 phase_left, phase_right = False, False

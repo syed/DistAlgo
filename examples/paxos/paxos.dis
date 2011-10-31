@@ -1,18 +1,18 @@
 
 class Proposer(DistProcess):
-    def setup(acceptors, totprocs, quorum):
+    def setup(acceptors, quorum):
         acpts = acceptors       # The set of all acceptors
-        nprocs = totprocs       # Total number of processes in the system, used to generate unique proposal numbers
         maj = quorum            # Size of a "quorum"
         propNum, propVal = self, self # Our own proposal number and value
 
     def main():
         while True:
-             --prepare
-             send(Prepare(propNum, self), acpts)
+             --start
+             send(Prepare(propNum), acpts)
              await(len(received(Promise(propNum, vp, vv, a))) > maj, TIMEOUT)
              --propose
              if (not _timeout):
+#                 output("0:%r"%received(Promise(propNum, vp, vv, a)))
                  # Choose the safe value. The len check is ugly but
                  # neccessary, since to get rid of it we'll need a sane
                  # default value for max([]), which I can't seem to find
@@ -21,11 +21,14 @@ class Proposer(DistProcess):
                      _, safeval, _ = max(received(Promise(propNum, vp, vv, a)))
                  if (safeval >= 0):
                      propVal = safeval
-                 send(Propose(propNum, propVal, self), acpts)
+#                 output("Proposing %d." % propVal)
+                 send(Propose(propNum, propVal), acpts)
                  await(len(received(Accept(propNum, propVal, a)))>maj, TIMEOUT)
                  if (not _timeout): # We're done
+ #                    output("1:%r"%received(Accept(propNum, vp, a)))
+                     --end
                      output("Succeeded in proposing %d"%propVal)
-                     return
+                     continue
              --reinit
              output("Failed ballot %d, retrying."%propNum)
              # Try again with a higher proposal number
@@ -41,16 +44,17 @@ class Acceptor(DistProcess):
     def main():
         await(False)
 
-    def OnPrepare(n, p):
+    def OnPrepare(n):
         if (len(sent(Promise(_pn, _vpn, _vv, self))) == 0 or
-            n > max(sent(Promise(_pn, _vpn, _vv, self))[0])):
+            n > max(sent(Promise(_pn, _vpn, _vv, self)))[0]):
             if len(sent(Accept(_vpn, _vv, self))) > 0:
                 maxpn, votedval, _ = max(sent(Accept(_vpn, _vv, self)))
-                send(Promise(n, maxpn, votedval, self), p)
+                send(Promise(n, maxpn, votedval, self), _source)
             else:
-                send(Promise(n, -1, -1, self), p)
+                send(Promise(n, -1, -1, self), _source)
 
-    def OnPropose(n, v, p):
+    def OnPropose(n, v):
         if (len(sent(Promise(_pn, _vpn, _vv, self))) == 0 or
-            n >= max(sent(Promise(_pn, _vpn, _vv, self))[0])):
-            send(Accept(n, v, self), p)
+            n >= max(sent(Promise(_pn, _vpn, _vv, self)))[0]):
+#            output("1:%r. Accept %d"% (sent(Promise(_pn, _vpn, _vv, self)), n))
+            send(Accept(n, v, self), _source)

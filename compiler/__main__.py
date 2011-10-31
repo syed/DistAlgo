@@ -1,34 +1,31 @@
 """Main entry point"""
 
-import sys
+import sys,os
 import time
 if sys.argv[0].endswith("__main__.py"):
-    sys.argv[0] = "python -m disalgo"
+    sys.argv[0] = "python -m distalgo"
 
-args = dict()
+RUNTIMEPKG = "runtime"
+RUNTIMEFILES = ["event.py", "udp.py", "sim.py", "util.py"]
 
 def parseArgs(argv):
-    if (len(argv) < 2):
-        printUsage(argv[0])
-        sys.exit(1)
 
-    global args
-    args['printsource'] = False
-    args['optimize'] = False
-    args['sourcefile'] = None
-    args['run'] = False
-    args['full'] = False
-    for arg in argv:
-        if (arg == "-p"):
-            args['printsource'] = True
-        elif (arg == "-o"):
-            args['optimize'] = True
-        elif (arg == "-r"):
-            args['run'] = True
-        elif (arg == "-F" or arg == "--full"):
-            args['full'] = True
-        else:
-            args['sourcefile'] = arg
+    import optparse
+    p = optparse.OptionParser()
+
+    p.add_option("-p", action="store_true", dest='printsource')
+    p.add_option("-F", action="store_true", dest='genfull')
+    p.add_option("--full", action="store_true", dest='genfull')
+    p.add_option("-O", action="store_true", dest='optimize')
+    p.add_option("-D", action="store", dest='rootdir')
+
+    p.set_defaults(printsource=False,
+                   genfull=False,
+                   optimize=False,
+                   rootdir=os.getcwd())
+
+    return p.parse_args()
+
 
 def printUsage(name):
     usage = """
@@ -37,30 +34,51 @@ Usage: %s [-p] [-o] <infile>
 """
     sys.stderr.write(usage % name)
 
-import ast
-
-from .dist import DistalgoTransformer
 from .codegen import to_source
 from .compiler import dist_compile
 
 def main():
-    parseArgs(sys.argv)
+    opts, args = parseArgs(sys.argv)
+    print("rootdir is %s" % opts.rootdir)
 
     start = time.time()
-    infd = open(args['sourcefile'], 'r')
-    pytree = dist_compile(infd)
-    infd.close()
+    runtime = []
+    if opts.genfull:
+        for f in RUNTIMEFILES:
+            p = os.path.join(opts.rootdir, RUNTIMEPKG, f)
+            if not os.path.isfile(p):
+                sys.stderr.write("File %s not found. Please specify root directory using -D.\n"%p)
+                sys.exit(1)
+            else:
+                pfd = open(p, "r")
+                runtime.extend(pfd.readlines())
+                pfd.close()
+    postamble = ["\nif __name__ == \"__main__\":\n",
+                 "    main()\n"]
+
+    for f in args:
+        infd = open(f, 'r')
+        pytree = dist_compile(infd)
+        infd.close()
+
+        pysource = to_source(pytree)
+
+        if opts.printsource:
+            sys.stdout.write(pysource)
+        else:
+            outfile = f[:-4] + ".py"
+            outfd = open(outfile, 'w')
+            if opts.genfull:
+                outfd.writelines(runtime)
+            outfd.write(pysource)
+            if opts.genfull:
+                outfd.writelines(postamble)
+            outfd.close()
+            sys.stderr.write("Written %s.\n"%outfile)
+
     elapsed = time.time() - start
-
-    pysource = to_source(pytree)
-
-    outfile = args['sourcefile'][:-4] + ".py"
-    outfd = open(outfile, 'w')
-    outfd.write(pysource)
-    outfd.close()
-
-    print("Total compilation time: %f second(s)." % elapsed)
-    sys.exit(0)
+    sys.stderr.write("\nTotal compilation time: %f second(s).\n" % elapsed)
+    return 0
 
 if __name__ == '__main__':
     main()

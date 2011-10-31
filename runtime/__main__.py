@@ -2,6 +2,7 @@ import sys, stat, os
 from compiler import *
 from .util import *
 from .event import *
+from .sim import DistProcess
 
 def parseArgs(argv):
     if (len(argv) < 2):
@@ -24,14 +25,13 @@ def dist_source(filename):
 
     eval_source(os.path.join(source_dir, distsource),
                 os.path.join(source_dir, pysource))
-    
 
-def main():
+def libmain():
     global source_dir
 
     target = parseArgs(sys.argv)
-    if not target.endswith(".run"):
-        die("Expecting a run file as input.")
+    if not (target.endswith(".run") or target.endswith(".dis")):
+        die("Expecting a DistAlgo source or run file as input.")
 
     source_dir = os.path.dirname(target)
     purename = os.path.basename(target)[:-4]
@@ -43,12 +43,12 @@ def main():
     exec(targetfd.read(), globals())
     targetfd.close()
 
-    config()
-    start_simulation()
+    main()
+
+    collect_statistics()
     print_performance_statistics(statsfd)
 
 def eval_source(distsrc, pysrc):
-    global DistProcess
     distmode, pymode, codeobj = None, None, None
     try:
         distmode = os.stat(distsrc)
@@ -57,23 +57,25 @@ def eval_source(distsrc, pysrc):
 
     try:
         pymode = os.stat(pysrc)
-        if pymode[stat.ST_MTIME] >= distmode[stat.ST_MTIME]:
-            pyfd = open(pysrc, 'r')
-            codeobj = pyfd.read()
-            pyfd.close()
     except OSError:
-        pass
+        pymode = None
 
-    if codeobj == None:
+    if pymode == None or pymode[stat.ST_MTIME] < distmode[stat.ST_MTIME]:
         distfd = open(distsrc, 'r')
-        codeobj = dist_compile_to_string(distfd)
+        pyfd = open(pysrc, 'w+')
+        dist_compile_to_file(distfd, pyfd)
         distfd.close()
+        pyfd.close()
 
-    exec(codeobj, globals())
+    pyfd = open(pysrc, 'r')
+    code = compile(''.join(pyfd.readlines()), pysrc, 'exec')
+    exec(code, globals())
+    pyfd.close()
 
-def die(str):
-    print(str)
+def die(mesg = None):
+    if mesg != None:
+        sys.stderr.write(mesg + "\n")
     sys.exit(1)
 
 if __name__ == '__main__':
-    main()
+    libmain()

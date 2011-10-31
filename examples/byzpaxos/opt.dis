@@ -1,0 +1,101 @@
+
+class Proposer(DistProcess):
+    def setup(acceptors, quorumSize, f):
+        propNum = (0, self)          # Current proposal(ballot) number
+        propVal = self          # Current value to propose
+
+        promised = set()
+        seenvotes = {}
+        accepted = set()
+
+    def main():
+        while True:
+            --start
+            promised = set()
+            seenvotes = {}
+            send(Prepare(propNum), acceptors)
+            await(len(promised) > quorumSize, TIMEOUT)
+            --propose
+            if (not _timeout):
+                validprops = [(n, v)
+                              for (n, v) in seenvotes
+                              if seenvotes[(n,v)] > f]
+                if (len(validprops) > 0):
+                    maxvalidvote, safeval = max(validprops)
+                    if (maxvalidvote >= 0):
+                        propVal = safeval
+
+                accepted = set()
+                send(OneC(propNum, propVal), acceptors)
+                await(len(accepted) > quorumSize, TIMEOUT)
+                if (not _timeout): # We're done
+                     --end
+                     output("Succeeded proposing %r." % propVal)
+                     continue
+            --reinit
+            output("Failed ballot %s, retrying."%str(propNum))
+            propNum = next_prop_num()
+
+    def next_prop_num():
+        return (propNum[0]+1, self)
+
+    def OnPromise(pnum, maxvoted, maxvotedval):
+        if pnum == propNum and _source not in promised:
+            promised.add(_source)
+            if (maxvoted, maxvotedval) in seenvotes:
+                seenvotes[(maxvoted, maxvotedval)] += 1
+            else:
+                seenvotes[(maxvoted, maxvotedval)] = 1
+            
+    def OnTwoAv(pnum, pval):
+        if (pnum, pval) == (propNum, propVal):
+            accepted.add(_source)
+
+class Acceptor(DistProcess):
+    def setup(allprocs, quorumSize, tolerence):
+        peers = allprocs
+        maj = quorumSize
+        f = tolerence
+
+        maxpromised = (-1, self)
+        maxvoted = (-1, self)
+        maxvotedval = -1
+        senttwoav = set()
+        seenpromise = {}
+
+    def main():
+        await(False)
+
+    def OnPrepare(n):
+        if n > maxpromised:
+            maxpromised = n
+            send(Promise(n, maxvoted, maxvotedval), peers)
+
+    def OnOneC(n, v):
+        if (n >= maxpromised and islegal(n, v) and n not in senttwoav):
+            send(TwoAv(n, v), peers)
+            senttwoav.add(n)
+            if n > maxvoted:
+                maxvoted = n
+                maxvotedval = v
+#            output("Sent 2av for %d in ballot %d"%(v, n))
+
+    def OnTwoAv(propnum, propval, p):
+        pass
+
+    def islegal(propNum, propVal):
+        props = [(n, v)
+                 for (n, v) in seenpromise
+                 if len(seenpromise[(n,v)]) > f]
+        if (len(props) > 0):
+            maxvoted, safeval = max(props)
+            if (maxvoted == -1 or propVal == safeval): return True
+            else: return False
+        else:
+            return False
+
+    def OnPromise(pnum, mv, mval):
+        if (mv, mval) in seenpromise:
+            seenpromise[(mv, mval)].add(_source)
+        else:
+            seenpromise[(mv, mval)] = set([_source])

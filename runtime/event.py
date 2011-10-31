@@ -1,4 +1,3 @@
-
 class EventPattern:
     """ Describes an event "pattern" that can be used to match against Event
     instances.

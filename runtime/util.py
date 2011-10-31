@@ -1,69 +1,101 @@
-import multiprocessing, threading, random, time, queue, sys, traceback, os, signal, time
+import multiprocessing, time, sys, traceback, os, signal, time
 
-AllProcesses = []
+if not __name__ == "__main__":
+    from .udp import UdpEndPoint
+
 PerformanceCounters = {}
-PerformancePipe = multiprocessing.Queue()
+RootProcess = None
+EndPoint = UdpEndPoint
 PrintProcStats = False
 
 def maximum(iterable):
     if (len(iterable) == 0): return -1
     else: return max(iterable)
 
+def config_endpoint(endpoint):
+    global EndPoint
+    if endpoint == "udp":
+        EndPoint = UdpEndPoint
+    elif endpoint == "tcp":
+        EndPoint = TcpEndPoint
+
+def create_endpoint():
+    if type(EndPoint) == type:
+        return EndPoint()
+    else:
+        raise RuntimeError("Endpoint undefined before use.")
+
 def createprocs(pcls, n, args=None):
-    global AllProcesses
-    global PerformanceCounters
-    global PerformancePipe
+    # if not issubclass(pcls, DistProcess):
+    #     sys.stderr.write("Error: Can not create non-DistProcess.\n")
+    #     return set()
 
-    baseidx = len(AllProcesses)
-    result = [pcls(i, multiprocessing.Queue(), PerformancePipe)
-                   for i in range(baseidx, baseidx + n)]
+    global RootProcess
+    if RootProcess == None:
+        if type(EndPoint) == type:
+            RootProcess = EndPoint()
+        else:
+            sys.stderr.write("Error: EndPoint not defined.\n")
+
+    print("Creating procs %s.."%pcls.__name__)
+    pipes = []
+    for i in range(n):
+        (childp, ownp) = multiprocessing.Pipe()
+        p = pcls(RootProcess, childp)
+        pipes.append((childp, ownp))      # Buffer the pipe
+        p.start()               # We need to start proc right away to obtain
+                                # EndPoint for p
+    print("%d instances of %s created."%(n, pcls.__name__))
+    result = set()
+    for childp, ownp in pipes:
+        childp.close()
+        cid = ownp.recv()
+        cid._initpipe = ownp    # Tuck the pipe here
+        result.add(cid)
     if (args != None):
-        for p in result:
-            p.setup(*args)
-    AllProcesses.extend(result)
-    return set(range(baseidx, baseidx+n))
+        setupprocs(result, args)
 
-def setup_processes(pids, args):
-    global AllProcesses
-    for i in pids:
-        AllProcesses[i].setup(*args)
+    return result
 
-def config_trace(trace):
-    global AllProcesses
-    for p in AllProcesses:
-        p._trace = trace
+def setupprocs(pids, args):
+    for p in pids:
+        p._initpipe.send(("setup", args))
+
+def startprocs(procs):
+    global PerformanceCounters
+
+    init_performance_counters(procs)
+    print("Starting procs...")
+    for p in procs:
+        p._initpipe.send("start")
+        del p._initpipe
+
+def collect_statistics():
+    global PerformanceCounters
+    try:
+        while (True):
+            src, tstamp, tup = RootProcess.recv(True)
+            event_type, count = tup
+            if PerformanceCounters.get(src) != None:
+                PerformanceCounters[src][event_type] += count
+    except Exception:
+        err_info = sys.exc_info()
+        print("Caught global unexpect exception:")
+        traceback.printtb(err_info[2])
+    except KeyboardInterrupt as e:
+        pass
 
 def config_print_individual_proc_stats(p):
     global PrintProcStats
     PrintProcStats = p
 
-def init_performance_counters():
+def init_performance_counters(procs):
     global PerformanceCounters
-    for i in range(0, len(AllProcesses)):
-        PerformanceCounters[i] = {'sent': 0, 'unitsdone' : 0, 'totaltime' : 0,
+    for p in procs:
+        PerformanceCounters[p] = {'sent': 0, 'unitsdone' : 0, 'totaltime' : 0,
                                   'totalusrtime' : 0, 'totalsystime' : 0,
                                   'usertime' :0 , 'systemtime' : 0,
                                   'elapsedtime' : 0}
-
-def start_simulation():
-    global PerformanceCounters
-
-    init_performance_counters()
-    print("Starting procs...")
-    for p in AllProcesses:
-        p._set_all_processes(AllProcesses)
-        p.start()
-    try:
-        while (True):
-            (pid, event_type, data) = PerformancePipe.get(True)
-            if PerformanceCounters.get(pid) != None:
-                PerformanceCounters[pid][event_type] += data
-    except Exception:
-        err_info = sys.exc_info()
-        print("Caught global unexpect exception:")
-        traceback.printtb(err_info[2])
-    except KeyboardInterrupt:
-        pass
 
 def print_performance_statistics(outfd):
     global PerformanceCounters
@@ -110,15 +142,18 @@ def print_performance_statistics(outfd):
 
     outfd.write(statstr)
 
-def config_fail_rate(failtype, rate):
-    for p in AllProcesses:
-        p.set_failure_rate(failtype, rate)
+def config_fail_rate(procs, failtype, rate):
+    for p in procs:
+        p._initpipe.send(("set_failure_rate", [failtype, rate]))
 
-def config_sim_total_units(num_units):
-    for p in AllProcesses:
-        p.set_total_units_to_run(num_units)
+def config_sim_total_units(procs, num_units):
+    for p in procs:
+        p._initpipe.send(("set_total_units_to_run", [num_units]))
 
-def config_max_event_timeout(time):
-    for p in AllProcesses:
-        p.set_event_timeout(time)
+def config_max_event_timeout(procs, time):
+    for p in procs:
+        p._initpipe.send(("set_event_timeout", [time]))
 
+def config_trace(procs, trace):
+    for p in procs:
+        p._initpipe.send(("set_trace", [trace]))

@@ -1,0 +1,72 @@
+
+class Proposer(DistProcess):
+    def setup(acceptors, quorum):
+        acpts = acceptors       # The set of all acceptors
+        maj = quorum            # Size of a "quorum"
+        propNum, propVal = self, self # Our own proposal number and value
+
+        promised = set()
+        accepted = set()
+        maxseenvote = 0
+        count = 0
+
+    def main():
+        while True:
+             --start
+             promised = set()
+             count = 0
+             send(Prepare(propNum), acpts)
+             await(count > maj, TIMEOUT)
+             --propose
+             if (not _timeout):
+                 accepted = set()
+                 count = 0
+                 send(Propose(propNum, propVal), acpts)
+                 await(count > maj, TIMEOUT)
+                 if (not _timeout): # We're done
+                     --end
+                     output("Succeeded in proposing %d"%propVal)
+                     propVal = self # Reset and propose again
+                     maxseenvote = 0
+                     continue
+             --reinit
+             output("Failed ballot %d, retrying."%propNum)
+             # Try again with a higher proposal number
+             propNum = next_prop_num()
+
+    def next_prop_num():
+        return propNum+nprocs
+
+    def OnPromise(pnum, maxvoted, maxvotedval):
+        if pnum == propNum and _source not in promised:
+            promised.add(_source)
+            count += 1
+            if maxvoted > maxseenvote:
+                maxseenvote = maxvoted
+                propVal = maxvotedval
+
+    def OnAccept(pnum, pval):
+        if (pnum, pval) == (propNum, propVal) and _source not in accepted:
+            accepted.add(_source)
+            count += 1
+
+class Acceptor(DistProcess):
+    def setup():
+        maxpromised = -1
+        maxvoted = -1
+        maxvotedval = -1
+
+    def main():
+        await(False)
+
+    def OnPrepare(n):
+        if n > maxpromised:
+            maxpromised = n
+            send(Promise(n, maxvoted, maxvotedval), _source)
+
+    def OnPropose(n, v):
+        if n >= maxpromised:
+            send(Accept(n, v), _source)
+            if n > maxvoted:
+                maxvoted = n
+                maxvotedval = v

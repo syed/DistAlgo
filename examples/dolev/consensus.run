@@ -1,17 +1,15 @@
-from runtime.sim import DistProcess
-
-global DistProcess
-global TIMEOUT
 TIMEOUT = 3
 dist_source("consensus.dis")
 
-def config():
+def main():
       n = 50
       f = 50
       ps = createprocs(P, n)
-      for p in ps:
-            AllProcesses[p].setup(p, f, ps)
-      config_fail_rate('send', 20)
-      config_fail_rate('receive', 20)
-      config_fail_rate('crash', 1)
-      config_sim_total_units(100)
+      for i, p in enumerate(list(ps)):
+            setupprocs({p},[i, f, ps])
+      config_fail_rate(ps, 'send', 0)
+      config_fail_rate(ps, 'receive', 0)
+      config_fail_rate(ps, 'crash', 0)
+      config_sim_total_units(ps, 100)
+
+      startprocs(ps)

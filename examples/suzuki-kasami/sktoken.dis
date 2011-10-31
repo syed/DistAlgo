@@ -1,14 +1,10 @@
 
 class P(DistProcess):
-      def setup(otherp):
+      def setup(otherp, hastoken):
             ps = otherp
-            token = dict((p, 0) for p in (ps + [self]) )
-            requests = dict((p, 0) for p in ps)
+            token = dict((p, -1) for p in (ps + [self]) )
+            requests = dict((p, -1) for p in ps)
             token_held = False
-            token_present = False
-            token_received = False
-
-      def set_token(hastoken):
             token_present = hastoken
             token_received = hastoken
 
@@ -23,13 +19,13 @@ class P(DistProcess):
           token_present = True
           token_held = True
           output("In CS!")
-          work()
+#          work()
           --release
-          output("Release CS!")
           token_received = False
           release()
 
       def release():
+           output("Releasing.")
            token[self] = logical_clock()
            token_held = False
            for p in ps:
@@ -38,13 +34,13 @@ class P(DistProcess):
                  # order to guarantee fairness of the algorithm.
                  if (requests[p] > token[p] and token_present):
                        token_present = False
-                       output("Sending token to %d" % (p))
+                       output("Sending token to %r" % (p))
                        send(Token(), p)
 
       def main():
             while True:
                   cs()
-                  work()
+ #                 work()
 
       def OnRequest():
            requests[_source] = max(requests[_source], _timestamp)

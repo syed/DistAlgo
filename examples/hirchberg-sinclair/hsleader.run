@@ -1,17 +1,18 @@
 import random
-from runtime.sim import DistProcess
-
-global DistProcess
-global TIMEOUT
 TIMEOUT = 3
 dist_source("hsleader.dis")
 
-def config():
-    n = 5
+def main():
+    n = 10
     ps = createprocs(P, n)
-    topology = list(range(0, n))
+    topology = [p for p in ps]
     random.shuffle(topology)
-    for i in range(1, n-1):
-        AllProcesses[topology[i]].setup(topology[i-1], topology[i+1])
-    AllProcesses[topology[0]].setup(topology[n-1], topology[1])
-    AllProcesses[topology[n-1]].setup(topology[n-2], topology[0])
+    for i, p in enumerate(topology):
+        if i == 0:
+           setupprocs([p], [topology[-1], topology[1]])
+        elif i == len(topology)-1:
+           setupprocs([p], [topology[-2], topology[0]])
+        else:
+           setupprocs([p], [topology[i-1], topology[i+1]])
+
+    startprocs(ps)

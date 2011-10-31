@@ -1,0 +1,20 @@
+from runtime.sim import DistProcess
+
+global DistProcess
+global TIMEOUT
+TIMEOUT = 3
+dist_source("opt.dis")
+def config():
+    nproposers = 3
+    nacceptors = 10
+    f = 2
+
+    acceptors = createprocs(Acceptor, nacceptors)
+    proposers = createprocs(Proposer, nproposers)
+
+    setup_processes(acceptors, [acceptors.union(proposers), nacceptors/2+f, f])
+    setup_processes(proposers, [acceptors, nproposers+nacceptors, nacceptors/2+f, f])
+
+    config_max_event_timeout(3)
+    config_trace(False)
+

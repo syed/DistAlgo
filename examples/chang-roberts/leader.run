@@ -1,14 +1,11 @@
-from runtime.sim import DistProcess
-
-global DistProcess
-global TIMEOUT
 TIMEOUT = 3
 dist_source("leader.dis")
 
-def config():
+def main():
     n = 5
     ps = createprocs(P, n)
-    config_sim_total_units(100)
-    for i in range(0, n):
-        AllProcesses[i].setup((i+1 if i < (n-1) else 0))
-    config_trace(True)
+    list = [p for p in ps]
+    for i, p in enumerate(list):
+        setupprocs([p], [list[(i+1 if i < (len(list)-1) else 0)]])
+
+    startprocs(ps)

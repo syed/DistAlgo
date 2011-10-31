@@ -4,7 +4,7 @@ global DistProcess
 global TIMEOUT
 TIMEOUT = 5
 
-dist_source("paxos.dis")
+dist_source("opt.dis")
 
 def config():
     nproposers = 10
@@ -15,4 +15,4 @@ def config():
                             [acceptors, nproposers+nacceptors, nacceptors/2])
 
     config_max_event_timeout(1)
-    config_trace(False)
+    config_sim_total_units(1)

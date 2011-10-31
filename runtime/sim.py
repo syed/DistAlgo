@@ -1,44 +1,28 @@
-import multiprocessing, threading, random, time, queue, sys, traceback, os, signal, time
-from .event import *
+import multiprocessing, threading, random, time, queue, sys, traceback, os
+
+if not __name__ == "__main__":
+    from .event import *
+    from .util import create_endpoint
 
 class DistProcess(multiprocessing.Process):
-    # ====================
-    # Each Process will have one 'Comm' thread
-    # ====================
     class Comm(threading.Thread):
-        def __init__(self, pid, queue, parent):
+        def __init__(self, parent):
             threading.Thread.__init__(self)
-            self._id = pid
-            self._p = parent
-            self._queue = queue  # Queue used to communicate with our main Site
-                                # process
-            self._running = True
+            self._parent = parent
 
         def run(self):
             try:
-                while self._running:
-                    (src, clock, data) = self._p.receive()
+                while True:
+                    msg = self._parent.receive()
+                    (src, clock, data) = msg
                     e = Event(Event.receive, src, clock, data)
-                    self._queue.put(e)
-                    # Dispatch to child procs
-                    for c in self._p._child_procs:
-                        c._pipe.put((src, clock, data))
-            except Exception as e:
-                traceback.print_tb(e.__traceback__)
-                err_info = sys.exc_info()
-                print("Caught unexpected exception %s at comm thread[%d]"%
-                       (self._id, str(err_info[0])))
-                traceback.printtb(err_info[2])
+                    self._parent._eventq.put(e)
             except KeyboardInterrupt:
                 pass
 
-    def __init__(self, pid, pipe, perf_pipe, parent = None):
+    def __init__(self, parent, initpipe):
         multiprocessing.Process.__init__(self)
-        self._id = pid
-        self._pipe = pipe
-        self._perf_pipe = perf_pipe
-        self._running = True
-
+        self._running = False
         self._logical_clock = 0
 
         self._event_patterns = []
@@ -57,78 +41,82 @@ class DistProcess(multiprocessing.Process):
         self._trace = False
 
         self._parent = parent
+        self._initpipe = initpipe
         self._child_procs = []
 
-    def term_handler(self):
-        print("C-%d Terminating..." % self._id)
-        sys.exit(1)
+    def _wait_for_go(self):
+        self._initpipe.send(self._id)
+        while True:
+            act = self._initpipe.recv()
+
+            if act == "start":
+                self._running = True
+                del self._initpipe
+                return
+            else:
+                inst, args = act
+                m = getattr(self, inst)
+                m(*args)
 
     def _start_comm_thread(self):
-        self._event_queue = queue.Queue() # Queue used to communicate with Comm
-        self._comm = DistProcess.Comm(self._id, self._event_queue, self)
+        self._eventq = queue.Queue()
+        self._comm = DistProcess.Comm(self)
         self._comm.start()
 
     def run(self):
         try:
+            self._id = create_endpoint()
             self._start_comm_thread()
+            self._wait_for_go()
+
             self._totusrtime_start, self._totsystime_start, _, _, _ = os.times()
             self._tottime_start = time.clock()
             self.main()
         except Exception as e:
-            print("Unexpected error at process %d:%s"% (self._id, str(e)))
+            print("Unexpected error at process %s:%r"% (str(self), e))
             traceback.print_tb(e.__traceback__)
-        except KeyboardInterrupt:
+        except KeyboardInterrupt as e:
             pass
+        self.output("Exiting.")
 
-    def _set_all_processes(self, procs):
-        self._allprocs = procs
+    def exit(self, code):
+        raise SystemExit(code)
 
     def output(self, message):
-        print("%s[%d]: %s"%(self.__class__.__name__, self._id, message))
+        print("%s[%s]: %s"%(self.__class__.__name__, str(self._id), message))
 
     def spawn(self, pcls, args):
-        idx = len(self._child_procs)
-        p = pcls(idx, multiprocessing.Queue(), self._perf_pipe)
-        self._child_procs.append(p)
-        p.setup(*args)
-        p._set_all_processes(self._allprocs)
+        childp, ownp = multiprocessing.Pipe()
+        p = pcls(self._id, childp)
         p._trace = self._trace
         p.start()
-        return idx
+        childp.close()
+        cid = ownp.recv()
+        ownp.send(("setup", args))
+        ownp.send("start")
+        return cid
 
     # Wrapper functions for message passing:
     def send(self, data, to):
         if (self._fails('send')):
             return False
 
-        message = (self._id, self._logical_clock, data)
-
         if (hasattr(to, '__iter__')):
             for t in to:
-                if (isinstance(t, int)):
-                    self._allprocs[t]._pipe.put(message)
-                    self._perf_pipe.put((self._id, 'sent', 1))
-                elif (isinstance(t, DistProcess)):
-                    t._pipe.put(message)
-                    self._perf_pipe.put((self._id, 'sent', 1))
-        elif (isinstance(to, int)):
-            self._allprocs[to]._pipe.put(message)
-            self._perf_pipe.put((self._id, 'sent', 1))
-        elif (isinstance(to, DistProcess)):
-            to._pipe.put(message)
-            self._perf_pipe.put((self._id, 'sent', 1))
+                t.send(data, self._id, self._logical_clock)
         else:
-            return False
+            to.send(data, self._id, self._logical_clock)
+
         if (self._trace):
-            self.output("Sent %s"%str(message))
-        self._event_queue.put(Event(Event.send, self._id, self._logical_clock,
-                                    data))
+            self.output("Sent %s -> %r"%(str(data), to))
+        self._eventq.put(Event(Event.send, self._id, self._logical_clock,data))
+        self._parent.send(('sent', 1), self._id)
         return True
 
     def receive(self):
         while (self._fails('receive')):
-            self._pipe.get()
-        return self._pipe.get()
+            self._id.recv(True) # This only makes sense for blocking recvs
+        return self._id.recv(True)
 
     # This simulates the controlled "label" mechanism. Currently we simply
     # handle one event on one label call:
@@ -139,11 +127,11 @@ class DistProcess(multiprocessing.Process):
             self._end_work_unit()
         if (self._fails('crash')):
             self.output("Stuck in label: %s" % name)
-            self._comm.join()   # This will hang our process forever
+            self.exit(10)
         if not name in self._label_events:
             # Error: invalid label name
             return
-        self._process_event_(self._label_events[name], block)
+        self._process_event(self._label_events[name], block)
 
     def _fails(self, failtype):
         if not failtype in self._failures.keys():
@@ -155,10 +143,10 @@ class DistProcess(multiprocessing.Process):
     # Retrieves one message, then process the backlog event queue. 'block'
     # indicates whether to block waiting for next message to come in if the
     # queue is currently empty:
-    def _process_event_(self, patterns, block):
+    def _process_event(self, patterns, block):
         try:
-            # Fetch one event from queue
-            event = self._event_queue.get(block, self._evtimeout)
+            event = self._eventq.get(block, self._evtimeout)
+
             # The following loop does a "prematch" for this new event. If it
             # matches something then we keep it. Otherwise we know there is no
             # handler for this event and thus we simply discard it.
@@ -166,6 +154,7 @@ class DistProcess(multiprocessing.Process):
                 if (p.match(event)):
                     self._event_backlog.append(event)
                     break
+
         except queue.Empty:
             pass
 
@@ -175,7 +164,8 @@ class DistProcess(multiprocessing.Process):
             for p in patterns:
                 if (p.match(e)): # Match and handle
                     # Match success, update logical clock, call handlers
-                    self._logical_clock = max(self._logical_clock, e.timestamp)+1
+                    self._logical_clock = \
+                        max(self._logical_clock, e.timestamp) + 1
 
                     args = []
                     for (index, name) in p.var:
@@ -194,34 +184,34 @@ class DistProcess(multiprocessing.Process):
         if (self._current_units == self._total_units):
             self.output("Reached designated work unit count.")
             usrtime, systime, _, _, _ = os.times()
-            self._perf_pipe.put((self._id, 'totalusrtime',
-                                 usrtime - self._totusrtime_start))
-            self._perf_pipe.put((self._id, 'totalsystime',
-                                 systime - self._totsystime_start))
-            self._perf_pipe.put((self._id, 'totaltime',
-                                 time.clock() - self._tottime_start))
+            self._parent.send(('totalusrtime',
+                                 usrtime - self._totusrtime_start), self._id)
+            self._parent.send(('totalsystime',
+                                 systime - self._totsystime_start), self._id)
+            self._parent.send(('totaltime',
+                                 time.clock() - self._tottime_start), self._id)
             self._forever_message_loop()
 
-        self._time_unit_start = (os.times(), time.clock())
+#        self._time_unit_start = (os.times(), time.clock())
 
     def _end_work_unit(self):
-        usrtime_end, systime_end, _, _ ,_ = os.times()
-        tottime_end = time.clock()
-        ((usrtime_start, systime_start, _, _, _), tottime_start) = \
-            self._time_unit_start
+        # usrtime_end, systime_end, _, _ ,_ = os.times()
+        # tottime_end = time.clock()
+        # ((usrtime_start, systime_start, _, _, _), tottime_start) = \
+        #     self._time_unit_start
 
         self._current_units += 1
-        self._perf_pipe.put((self._id, 'unitsdone', 1))
-        self._perf_pipe.put((self._id, 'usertime',
-                             usrtime_end - usrtime_start))
-        self._perf_pipe.put((self._id, 'systemtime',
-                             systime_end - systime_start))
-        self._perf_pipe.put((self._id, 'elapsedtime',
-                             tottime_end - tottime_start))
+        # self._parent.send(('unitsdone', 1), self._id)
+        # self._parent.send(('usertime',
+        #                      usrtime_end - usrtime_start), self._id)
+        # self._parent.send(('systemtime',
+        #                      systime_end - systime_start), self._id)
+        # self._parent.send(('elapsedtime',
+        #                      tottime_end - tottime_start), self._id)
 
     def _forever_message_loop(self):
         while (True):
-            self._process_event_(self._event_patterns, True)
+            self._process_event(self._event_patterns, True)
 
     def _has_received(self, mess):
         try:
@@ -231,7 +221,10 @@ class DistProcess(multiprocessing.Process):
             return False
 
     def __str__(self):
-        return "" + self._id
+        return self.__class__.__name__ + str(self._id)
+
+    def set_trace(self, trace):
+        self._trace = trace
 
     def set_failure_rate(self, failtype, rate):
         self._failures[failtype] = rate
@@ -244,7 +237,7 @@ class DistProcess(multiprocessing.Process):
 
     # Simulate work, waste some random amount of time:
     def work(self):
-        #time.sleep(random.randint(1, 5))
+        time.sleep(random.randint(1, 3))
         pass
 
     def logical_clock(self):

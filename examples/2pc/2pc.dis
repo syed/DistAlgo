@@ -1,14 +1,12 @@
 from random import randint
 
 class Proposer(DistProcess):
-    def setup(nodes, increment):
-        ballot = self           # Our starting ballot number
+    def setup(nodes):
+        ballot = (0, self)           # Our starting ballot number
         value = self
-        increment = increment   # Increment to ensure unique ballot number
-        nodes = nodes           # Set of all acceptors
 
     def main():
-      retry = 0  
+      retry = 0
       while True:
           --transact_start
           retry += 1
@@ -21,9 +19,9 @@ class Proposer(DistProcess):
           # otherwise abort:
           if (len(received(Agree(ballot, src))) == len(nodes)):
               send(Commit(ballot), nodes)
-              output("Committed ballot %d on %dth attempt"%(ballot, retry))
+              output("Committed ballot %r on %dth attempt"%(ballot, retry))
               retry = 0
-              ballot += increment
+              ballot = (ballot[0]+1, self)
               break
           else:
               send(Abort(ballot), nodes)
@@ -34,8 +32,8 @@ class Proposer(DistProcess):
 class Acceptor(DistProcess):
     def setup(rate):
         failure_rate = rate
-        staging = {}
-        localdb = {}
+        staging = dict()
+        localdb = dict()
 
     def main():
         await(False)
