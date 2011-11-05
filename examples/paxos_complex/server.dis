@@ -45,14 +45,14 @@ class Acceptor(DistProcess):
     def OnP1a(lam, b):
         if b > ballot_num:
             ballot_num = b
-        send(P1b(self, ballot_num, accepted), _source)
+        send(P1b(self, ballot_num, accepted), lam)
 
     def OnP2a(lam, load):
         b, s, p = load
         if b >= ballot_num :
             ballot_num = b
             accepted.add((b,s,p))
-        send(P2b(self, ballot_num), _source)
+        send(P2b(self, ballot_num), lam)
 
 class Leader(DistProcess):
     def setup(acceptors, replicas):
@@ -99,7 +99,7 @@ class Commander(DistProcess):
         b, s, p = load
 
     def main():
-        send(P2a(lam, (b, s, p)), acceptors)
+        send(P2a(self, (b, s, p)), acceptors)
         await(False)
 
     def OnP2b(a, b1):
@@ -120,7 +120,7 @@ class Scout(DistProcess):
         pvalues = set()
 
     def main():
-        send(P1a(lam, b), acceptors)
+        send(P1a(self, b), acceptors)
         await(False)
 
     def OnP1b(a, b1, r):

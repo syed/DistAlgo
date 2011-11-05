@@ -1,14 +1,13 @@
 
 class Proposer(DistProcess):
-    def setup(acceptors, quorum):
-        acpts = acceptors       # The set of all acceptors
-        maj = quorum            # Size of a "quorum"
-        propNum, propVal = self, self # Our own proposal number and value
+    def setup(acceptors, maj):
+        propNum = (0, self)
+        propVal = self # Our own proposal number and value
 
     def main():
         while True:
              --start
-             send(Prepare(propNum), acpts)
+             send(Prepare(propNum), acceptors)
              await(len(received(Promise(propNum, vp, vv, a))) > maj, TIMEOUT)
              --propose
              if (not _timeout):
@@ -16,26 +15,25 @@ class Proposer(DistProcess):
                  # Choose the safe value. The len check is ugly but
                  # neccessary, since to get rid of it we'll need a sane
                  # default value for max([]), which I can't seem to find
-                 safeval = -1
+                 safeval = None
                  if (len(received(Promise(propNum, vp, vv, a))) > 0):
                      _, safeval, _ = max(received(Promise(propNum, vp, vv, a)))
-                 if (safeval >= 0):
+                 if (safeval != None):
                      propVal = safeval
 #                 output("Proposing %d." % propVal)
-                 send(Propose(propNum, propVal), acpts)
+                 send(Propose(propNum, propVal), acceptors)
                  await(len(received(Accept(propNum, propVal, a)))>maj, TIMEOUT)
                  if (not _timeout): # We're done
- #                    output("1:%r"%received(Accept(propNum, vp, a)))
                      --end
-                     output("Succeeded in proposing %d"%propVal)
+                     output("Succeeded in proposing %r"%propVal)
                      continue
              --reinit
-             output("Failed ballot %d, retrying."%propNum)
+             output("Failed ballot %s, retrying."%str(propNum))
              # Try again with a higher proposal number
              propNum = next_prop_num()
 
     def next_prop_num():
-        return propNum+nprocs
+        return (propNum[0]+1, self)
 
 class Acceptor(DistProcess):
     def setup():
@@ -51,7 +49,7 @@ class Acceptor(DistProcess):
                 maxpn, votedval, _ = max(sent(Accept(_vpn, _vv, self)))
                 send(Promise(n, maxpn, votedval, self), _source)
             else:
-                send(Promise(n, -1, -1, self), _source)
+                send(Promise(n, (-1, self), None, self), _source)
 
     def OnPropose(n, v):
         if (len(sent(Promise(_pn, _vpn, _vv, self))) == 0 or

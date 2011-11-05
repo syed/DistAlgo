@@ -1,9 +1,9 @@
-TIMEOUT = 5
+TIMEOUT = 1
 dist_source("byzpaxos.dis")
 
 def main():
-    nproposers = 8
-    nacceptors = 150
+    nproposers = 10
+    nacceptors = 25
     f = (nacceptors -1)/3
 
     acceptors = createprocs(Acceptor, nacceptors)
@@ -12,5 +12,8 @@ def main():
     setupprocs(acceptors, [acceptors | proposers, f])
     setupprocs(proposers, [acceptors, nacceptors/2+f, f])
 
-    config_max_event_timeout(3)
-    config_sim_total_units(1)
+    config_sim_total_units(proposers, 1)
+    config_total_units(nproposers)
+
+    startprocs(acceptors)
+    startprocs(proposers)

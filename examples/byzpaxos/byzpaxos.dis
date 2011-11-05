@@ -1,49 +1,44 @@
 
 class Proposer(DistProcess):
-    def setup(acceptors, nps, quorumSize, tolerance):
-        acpts = acceptors       # Set of acceptors
-        total_procs = nps       # Total number of processes in the system,
-                                # used to generate unique proposal numbers
-        maj = quorumSize        # size of a byzquorum
-        f = tolerance           # Number of faulty processes to tolerate
-        propNum = self          # Current proposal(ballot) number
+    def setup(acceptors, maj, f):
+        propNum = (0, self)          # Current proposal(ballot) number
         propVal = self          # Current value to propose
 
     def main():
         while True:
             --start
-            send(Prepare(propNum, self), acpts)
+            send(Prepare(propNum, self), acceptors)
             await(len(received(Promise(propNum, _vp, _vv, _a)))>maj, TIMEOUT)
             --propose
             if (not _timeout):
-                safeval = -1
+                mn = (-2, self)
+                safeval = None
                 props = [(n, v)
                          for (n, v, _) in
                          received(Promise(propNum, _n, _v, _a))
                          if len(received(Promise(propNum, n, v, _a))) > f]
-                if (len(props) > 0):
-                    _, safeval = max(props)
-                if (safeval >= 0):
+                for p in props:
+                    if p[0] > mn: mn, safeval = p
+                if (safeval != None):
                     propVal = safeval
-                    
-                send(OneC(propNum, propVal, self), acpts)
+
+                send(OneC(propNum, propVal, self), acceptors)
                 await(len(received(TwoAv(propNum, propVal, a))) > maj, TIMEOUT)
                 if (not _timeout): # We're done
                      --end
-                     output("Succeeded proposing %d" % propVal)
+                     output("Succeeded proposing %r" % propVal)
                      continue
             --reinit
-            output("Failed ballot %d, retrying."%(propNum))
+            output("Failed ballot %s, retrying."%str(propNum))
              # Try again with a higher proposal number
             propNum = next_prop_num()
 
     def next_prop_num():
-        return propNum+total_procs
+        return (propNum[0]+1, self)
 
 class Acceptor(DistProcess):
-    def setup(allprocs, tolerence):
-        peers = allprocs
-        f = tolerence
+    def setup(peers, f):
+        pass
 
     def main():
         await(False)
@@ -54,7 +49,7 @@ class Acceptor(DistProcess):
                 maxpn, votedval, _ = max(sent(TwoAv(_vpn, _vv, self)))
                 send(Promise(n, maxpn, votedval, self), peers)
             else:
-                send(Promise(n, -1, -1, self), peers)
+                send(Promise(n, (-1, self), None, self), peers)
 
     def OnOneC(n, v, p):
         if (n >= maxpromised() and islegal(n, v) and
@@ -67,7 +62,7 @@ class Acceptor(DistProcess):
 
     def maxpromised():
         pns = sent(Promise(pn, vp, vv, a))
-        if (len(pns) == 0): return -1
+        if (len(pns) == 0): return (-2, self)
         else:
             maxpn, _, _, _ = max(pns)
             return maxpn
@@ -76,9 +71,9 @@ class Acceptor(DistProcess):
         props = [(n, v)
                  for (n, v, _) in received(Promise(propNum, vp, vv, a1))
                  if len(received(Promise(propNum, n, v, a2))) > f]
-        if (len(props) > 0):
-            _, safeval = max(props)
-            if (safeval == -1 or propVal == safeval): return True
-            else: return False
-        else:
-            return False
+        mn = (-2, self)
+        safeval = None
+        for p in props:
+            if p[0] > mn: mn, safeval = p
+        if (safeval == None or propVal == safeval): return True
+        else: return False

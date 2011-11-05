@@ -143,9 +143,10 @@ class DistProcess(multiprocessing.Process):
     # Retrieves one message, then process the backlog event queue. 'block'
     # indicates whether to block waiting for next message to come in if the
     # queue is currently empty:
-    def _process_event(self, patterns, block):
+    def _process_event(self, patterns, block, timeout = None):
+        if timeout != None and timeout < 0: timeout = 0
         try:
-            event = self._eventq.get(block, self._evtimeout)
+            event = self._eventq.get(block, timeout)
 
             # The following loop does a "prematch" for this new event. If it
             # matches something then we keep it. Otherwise we know there is no
@@ -237,7 +238,7 @@ class DistProcess(multiprocessing.Process):
 
     # Simulate work, waste some random amount of time:
     def work(self):
-        time.sleep(random.randint(1, 3))
+        time.sleep(random.randint(0, 200) / 100)
         pass
 
     def logical_clock(self):

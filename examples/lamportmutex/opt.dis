@@ -23,12 +23,12 @@ class P(DistProcess):
 
    # critical section
      --cs
-     output("In critical section")
+#     output("In critical section")
 #     work()
 
    # to exit cs, deque and send releases to all
      --release
-     output("Releasing critical section")
+#     output("Releasing critical section")
      send(Release(c), s)
      --end
      reqc = None

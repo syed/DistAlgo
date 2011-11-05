@@ -1,14 +1,12 @@
 TIMEOUT = 3
 dist_source("opt.dis")
-
 def main():
  # configuration: number of processes
- n = 100
-
+ n = 150
  # create n process
  ps = createprocs(P,n)
  config_sim_total_units(ps, 50)
-
+ config_total_units(n)
  # setup the processes
  for p in ps: setupprocs([p], [ps-{p}])
  startprocs(ps)

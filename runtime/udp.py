@@ -4,7 +4,7 @@ if not __name__ == "__main__":
 
 MIN_UDP_PORT = 10000
 MAX_UDP_PORT = 20000
-MAX_UDP_BUFSIZE = 20000
+MAX_UDP_BUFSIZE = 200000
 class UdpEndPoint:
     sender = None
     def __init__(self):

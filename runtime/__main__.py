@@ -47,6 +47,10 @@ def libmain():
 
     collect_statistics()
     print_performance_statistics(statsfd)
+    statsfd.close()
+
+    import subprocess
+    subprocess.call(['killall python3.2'], shell=True)
 
 def eval_source(distsrc, pysrc):
     distmode, pymode, codeobj = None, None, None

@@ -20,7 +20,6 @@ class P(DistProcess):
    # critical section
      --cs
 #     output("In cs.%d"%logical_clock())
-#     work()
 
    # to exit cs, deque and send releases to all
      --release

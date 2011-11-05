@@ -29,10 +29,11 @@ class AwaitTransformer(NodeTransformer):
         op = node.value.args[0]
         cond = UnaryOp(Not(), op)
 
-        # _process_event_(_event_patterns, True)
+        # _process_event_(_event_patterns, True, timeleft)
         whilebody = [Expr(Call(Name(EVENT_PROC_FUNNAME, Load()),
                                [Name(EVENT_PATTERN_VARNAME, Load()),
-                                Name("True", Load())],
+                                Name("True", Load()),
+                                Name(TIMELEFT_VARNAME, Load()) if len(node.value.args) > 1 else Name("None", Load())],
                                [], None, None))]
 
         if (len(node.value.args) > 1):
@@ -42,21 +43,33 @@ class AwaitTransformer(NodeTransformer):
                                              "time", Load()),
                                    [], [], None, None))
 
+            # timeleft = TIMEOUT
+            timeleftdef = Assign([Name(TIMELEFT_VARNAME, Store())],
+                                 node.value.args[1])
+
             # _timeout = False
             timeoutdef = Assign([Name(TIMEOUT_VARNAME, Store())],
                                 Name("False", Load()))
 
             body.append(timerdef)
+            body.append(timeleftdef)
             body.append(timeoutdef)
             
-            # if (time.time() - __await_timer_N > TIMEOUT):
+            # timeleft = TIMEOUT - (time.time() - __await_timer_N)
+            whilebody.append(
+                Assign([Name(TIMELEFT_VARNAME, Store())],
+                       Expr(BinOp(node.value.args[1],
+                                  Sub(),
+                                  BinOp(Call(Attribute(Name("time", Load()),
+                                                       "time", Load()),
+                                             [], [], None, None),
+                                        Sub(),
+                                        Name(timerVar, Load()))))))
+            # if (timeleft < 0)
             #     _timeout = True
             #     break
-            breakcond = Compare(BinOp(Call(Attribute(Name("time", Load()),
-                                                     "time", Load()),
-                                           [], [], None, None),
-                                      Sub(), Name(timerVar, Load())),
-                                [Gt()], [node.value.args[1]])
+            breakcond = Compare(Name(TIMELEFT_VARNAME, Load()),
+                                [Lt()], [Num(0)])
             breakbody = [Assign([Name(TIMEOUT_VARNAME, Store())],
                                 Name("True", Load())),
                          Break()]

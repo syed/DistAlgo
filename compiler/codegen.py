@@ -69,9 +69,12 @@ def to_source(node, indent_with=' ' * 4, add_line_information=False):
     number information of statement nodes.
     """
     generator = SourceGenerator(indent_with, add_line_information)
-    generator.visit(node)
-    return ''.join(generator.result)
-
+    try:
+        generator.visit(node)
+        return ''.join(generator.result)
+    except Exception as e:
+        print("Error during code generation. So far we have: %s"%(''.join(generator.result)))
+        raise e
 
 class SourceGenerator(NodeVisitor):
     """This visitor is able to transform a well formed syntax tree into python
@@ -179,7 +182,8 @@ class SourceGenerator(NodeVisitor):
             self.visit(item)
 
     def visit_Expr(self, node):
-        self.newline(node)
+        if not self.assigning:
+            self.newline(node)
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node):

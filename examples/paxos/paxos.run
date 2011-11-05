@@ -1,18 +1,14 @@
-from runtime.sim import DistProcess
-
-global DistProcess
-global TIMEOUT
-TIMEOUT = 5
-
+TIMEOUT = 1.5
 dist_source("paxos.dis")
-
-def config():
+def main():
     nproposers = 10
-    nacceptors = 150
+    nacceptors = 25
 
     acceptors = createprocs(Acceptor, nacceptors, [])
-    proposers = createprocs(Proposer, nproposers,
-                            [acceptors, nproposers+nacceptors, nacceptors/2])
+    proposers = createprocs(Proposer, nproposers, [acceptors, nacceptors/2])
 
-    config_max_event_timeout(1)
-    config_trace(False)
+    config_sim_total_units(proposers, 1)
+    config_total_units(nproposers)
+    
+    startprocs(acceptors)
+    startprocs(proposers)

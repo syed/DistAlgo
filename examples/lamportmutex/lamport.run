@@ -1,15 +1,14 @@
 TIMEOUT = 3
 dist_source("lamport.dis")
-
 def main():
  # configuration: number of processes
- n = 75
+ n = 150
  # create n process
  ps = createprocs(P,n)
  config_sim_total_units(ps, 50)
- config_trace(ps, False)
+ config_total_units(n)
 
  # setup the processes
  for p in ps: setupprocs({p}, [ps-{p}])
-
+ # start the processes
  startprocs(ps)

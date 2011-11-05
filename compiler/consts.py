@@ -6,6 +6,7 @@ EVENT_PROC_FUNNAME = "_process_event"
 
 TIMER_VARNAME = "__await_timer_"
 TIMEOUT_VARNAME = "_timeout"
+TIMELEFT_VARNAME = "_timeleft"
 
 LOGICAL_TIMESTAMP_VARNAME = "_timestamp"
 MSG_SRCNODE_VARNAME = "_source"

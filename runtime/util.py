@@ -7,6 +7,7 @@ PerformanceCounters = {}
 RootProcess = None
 EndPoint = UdpEndPoint
 PrintProcStats = False
+TotalUnits = None
 
 def maximum(iterable):
     if (len(iterable) == 0): return -1
@@ -72,17 +73,23 @@ def startprocs(procs):
 
 def collect_statistics():
     global PerformanceCounters
+    completed = 0
     try:
         while (True):
             src, tstamp, tup = RootProcess.recv(True)
             event_type, count = tup
             if PerformanceCounters.get(src) != None:
                 PerformanceCounters[src][event_type] += count
+                if event_type == 'totaltime':
+                    completed += 1
+                    if TotalUnits != None and completed == TotalUnits:
+                        raise KeyboardInterrupt()
     except Exception:
         err_info = sys.exc_info()
-        print("Caught global unexpect exception:")
+        print("Caught unexpected global exception:")
         traceback.printtb(err_info[2])
     except KeyboardInterrupt as e:
+        print("Terminating...")
         pass
 
 def config_print_individual_proc_stats(p):
@@ -127,8 +134,12 @@ def print_performance_statistics(outfd):
     statstr += ("* Total procs: %d\n" % len(PerformanceCounters))
     statstr += ("*** Total usertime: %f\n" % tot_usrtime)
     statstr += ("*** Total systemtime: %f\n" % tot_systime)
-    statstr += ("*** Average usertime: %f\n" % (tot_usrtime/len(PerformanceCounters)))
-    statstr += ("*** Average time: %f\n" % ((tot_usrtime + tot_systime)/len(PerformanceCounters)))
+    statstr += ("*** Total time: %f\n" % tot_time)
+    if len(PerformanceCounters) > 0:
+        statstr += ("*** Average usertime: %f\n" %
+                    (tot_usrtime/len(PerformanceCounters)))
+        statstr += ("*** Average time: %f\n" %
+                    ((tot_usrtime + tot_systime)/len(PerformanceCounters)))
 
     if (tot_units > 0):
         statstr += ("*** Overall average messages per unit: %f\n"
@@ -149,6 +160,10 @@ def config_fail_rate(procs, failtype, rate):
 def config_sim_total_units(procs, num_units):
     for p in procs:
         p._initpipe.send(("set_total_units_to_run", [num_units]))
+
+def config_total_units(num):
+    global TotalUnits
+    TotalUnits = num
 
 def config_max_event_timeout(procs, time):
     for p in procs:
