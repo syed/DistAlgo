@@ -15,9 +15,9 @@ def main():
 
     acceptors = createprocs(Acceptor, nacceptors, [])
     replicas = createprocs(Replica, nreplicas)
-    leaders = createprocs(Leader, nleaders, [acceptors, replicas])
-    clients = createprocs(Client, nclients, [replicas])
-    setupprocs(replicas, [leaders, 0])
+    leaders = createprocs(Leader, nleaders, (acceptors, replicas))
+    clients = createprocs(Client, nclients, (replicas,))
+    setupprocs(replicas, (leaders, 0))
 
     startprocs(acceptors)
     startprocs(replicas | leaders)
