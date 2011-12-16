@@ -1,0 +1,43 @@
+from random import randint
+
+class Coordinator(DistProcess):
+    def setup(tid, cohorts): pass
+
+    def main():
+        send(Prepare(tid), cohorts)
+        await(all(received(Vote(_result, tid, c)) for c in cohorts))
+        if all(received(Vote('ready', tid, c)) for c in cohorts):
+            send(Commit(tid), cohorts)
+            await(all(received(Done(tid, c)) for c in cohorts))
+            print('log complete record for' + str(tid))
+        else:
+            s = {c for c in cohorts if received(Vote('ready', tid, c))}
+            send(Abort(tid), s)
+        terminate()
+
+    def terminate(): print('terminating')
+
+class Cohort(DistProcess):
+    def setup(failure_rate): pass
+
+    def main():
+        await(False)
+
+    def OnPrepare(tid):
+        if prepared(tid):
+            send(Vote('ready', tid, self), _source)
+        else:
+            send(Vote('abort', tid, self), _source)
+
+    def OnCommit(tid):
+        send(Done(tid, self), _source)
+        commit(tid)
+
+    def OnAbort(tid):
+        abort(tid)
+
+    def prepared(tid): return randint(0, 100) > failure_rate
+
+    def commit(tid): print('commit' + str(tid))
+
+    def abort(tid): print('abort' + str(tid))

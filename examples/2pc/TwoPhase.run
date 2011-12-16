@@ -1,0 +1,11 @@
+dist_source("TwoPhase.dis")
+
+def main():
+    ncohorts = 5
+    fail_rate = 50
+
+    cohorts = createprocs(Cohort, ncohorts, [fail_rate])
+    coords = createprocs(Coordinator, 1, [1, cohorts])
+
+    startprocs(cohorts)
+    startprocs(coords)
